@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Route, Switch, useRouteMatch } from 'react-router-dom';
-import TransitionRouter from '@/TransitionRouter';
+import { NavLink, useRouteMatch } from 'react-router-dom';
 import PermissionRoute from '@/components/elements/PermissionRoute';
 import Can from '@/components/elements/Can';
 import Spinner from '@/components/elements/Spinner';
-import { NotFound } from '@/components/elements/ScreenBlock';
-import { useLocation } from 'react-router';
 import { useStoreState } from 'easy-peasy';
 import { ServerContext } from '@/state/server';
+import { PuzzlePieceIcon } from '@heroicons/react/24/solid';
 
-import routes from '@/routers/routes';
 import blueprintRoutes from './routes';
 
 const blueprintExtensions = [...new Set(blueprintRoutes.server.map((route) => route.identifier))];
@@ -47,27 +44,9 @@ export const NavigationLinks = () => {
     return `${(url ? match.url : match.path).replace(/\/*$/, '')}/${value.replace(/^\/+/, '')}`;
   };
   const extensionEggs = useExtensionEggs();
-  console.log(serverEgg);
 
   return (
     <>
-      {/* Pterodactyl routes */}
-      {routes.server
-        .filter((route) => !!route.name)
-        .map((route) =>
-          route.permission ? (
-            <Can key={route.path} action={route.permission} matchAny>
-              <NavLink to={to(route.path, true)} exact={route.exact}>
-                {route.name}
-              </NavLink>
-            </Can>
-          ) : (
-            <NavLink key={route.path} to={to(route.path, true)} exact={route.exact}>
-              {route.name}
-            </NavLink>
-          )
-        )}
-
       {/* Blueprint routes */}
       {blueprintRoutes.server.length > 0 &&
         blueprintRoutes.server
@@ -82,11 +61,13 @@ export const NavigationLinks = () => {
             route.permission ? (
               <Can key={route.path} action={route.permission} matchAny>
                 <NavLink to={to(route.path, true)} exact={route.exact}>
+                  <PuzzlePieceIcon />
                   {route.name}
                 </NavLink>
               </Can>
             ) : (
               <NavLink key={route.path} to={to(route.path, true)} exact={route.exact}>
+                <PuzzlePieceIcon />
                 {route.name}
               </NavLink>
             )
@@ -107,40 +88,24 @@ export const NavigationRouter = () => {
   };
   const extensionEggs = useExtensionEggs();
 
-  const location = useLocation();
   return (
     <>
-      <TransitionRouter>
-        <Switch location={location}>
-          {/* Pterodactyl routes */}
-          {routes.server.map(({ path, permission, component: Component }) => (
+      {/* Blueprint routes */}
+      {blueprintRoutes.server.length > 0 &&
+        blueprintRoutes.server
+          .filter((route) => (route.adminOnly ? rootAdmin : true))
+          .filter((route) =>
+            extensionEggs[route.identifier].includes('-1')
+              ? true
+              : extensionEggs[route.identifier].find((id) => id === serverEgg?.toString())
+          )
+          .map(({ path, permission, component: Component }) => (
             <PermissionRoute key={path} permission={permission} path={to(path)} exact>
               <Spinner.Suspense>
                 <Component />
               </Spinner.Suspense>
             </PermissionRoute>
           ))}
-
-          {/* Blueprint routes */}
-          {blueprintRoutes.server.length > 0 &&
-            blueprintRoutes.server
-              .filter((route) => (route.adminOnly ? rootAdmin : true))
-              .filter((route) =>
-                extensionEggs[route.identifier].includes('-1')
-                  ? true
-                  : extensionEggs[route.identifier].find((id) => id === serverEgg?.toString())
-              )
-              .map(({ path, permission, component: Component }) => (
-                <PermissionRoute key={path} permission={permission} path={to(path)} exact>
-                  <Spinner.Suspense>
-                    <Component />
-                  </Spinner.Suspense>
-                </PermissionRoute>
-              ))}
-
-          <Route path={'*'} component={NotFound} />
-        </Switch>
-      </TransitionRouter>
     </>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Route } from 'react-router-dom';
 import { useStoreState } from 'easy-peasy';
+import { PuzzlePieceIcon } from '@heroicons/react/24/solid';
 
 import blueprintRoutes from './routes';
 
@@ -15,6 +16,7 @@ export const NavigationLinks = () => {
           .filter((route) => (route.adminOnly ? rootAdmin : true))
           .map(({ path, name, exact = false }) => (
             <NavLink key={path} to={`/account/${path}`.replace('//', '/')} exact={exact}>
+              <PuzzlePieceIcon />
               {name}
             </NavLink>
           ))}

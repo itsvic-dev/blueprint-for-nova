@@ -1,8 +1,8 @@
 #!/bin/bash
+# © 2023-2024 Ivy (prpl.wtf)
 
-# blueprint.zip
-# github.com/BlueprintFramework/main
-# prpl.wtf
+# Learn more @ blueprint.zip
+# Source code available on github.com/blueprintframework/framework
 
 # This should allow Blueprint to run in Docker. Please note that changing the $FOLDER variable after running
 # the Blueprint installation script will not change anything in any files besides blueprint.sh.
@@ -12,22 +12,17 @@
 # This stores the webserver ownership user which Blueprint uses when applying webserver permissions.
   OWNERSHIP="www-data:www-data" #;
 
-# If the version below does not match your downloaded version, please let us know.
-  VERSION="beta-CB38"
+# This stores options for permissions related to running install scripts the webserver user.
+  WEBUSER="www-data" #;
+  USERSHELL="/bin/bash" #;
+
+# Defines the version Blueprint will display as the active one.
+  VERSION="beta-F248"
+
+# Default GitHub repository to use when upgrading Blueprint.
+  REPOSITORY="BlueprintFramework/framework"
 
 
-
-# Allow non-default Pterodactyl installation folders.
-if [[ $_FOLDER != "" ]]; then
-  if [[ ( ! -f "$FOLDER/.blueprint/extensions/blueprint/private/db/version" ) && ( $FOLDER == "/var/www/pterodactyl" ) ]]; then
-    sed -i -E "s|FOLDER=\"/var/www/pterodactyl\" #;|FOLDER=\"$_FOLDER\" #;|g" "$_FOLDER"/blueprint.sh
-    echo "Variable has been replaced."
-    exit 0
-  else
-    echo "Variable cannot be replaced right now."
-    exit 2
-  fi
-fi
 
 # Check for panels that are using Docker, which should have better support in the future.
 if [[ -f "/.dockerenv" ]]; then
@@ -39,6 +34,8 @@ else
   DOCKER="n"
 fi
 
+# This has caused a bunch of errors but is just here to make sure people actually upload the
+# "blueprint" folder onto their panel when installing Blueprint. Pick your poison.
 if [[ -d "$FOLDER/blueprint" ]]; then mv $FOLDER/blueprint $FOLDER/.blueprint; fi
 
 if [[ $VERSION != "" ]]; then
@@ -96,13 +93,14 @@ cdhalt() { PRINT FATAL "Attempted navigation into nonexistent directory, halting
 
 
 depend() {
-  # Check for incorrect node version.
+  # Check for compatible node versions
   nodeVer=$(node -v)
   if [[ $nodeVer != "v17."* ]] \
   && [[ $nodeVer != "v18."* ]] \
   && [[ $nodeVer != "v19."* ]] \
   && [[ $nodeVer != "v20."* ]] \
-  && [[ $nodeVer != "v21."* ]]; then 
+  && [[ $nodeVer != "v21."* ]] \
+  && [[ $nodeVer != "v22."* ]]; then 
     DEPEND_MISSING=true
   fi
 
@@ -133,7 +131,8 @@ depend() {
     if [[ $nodeVer != "v18."* ]] \
     && [[ $nodeVer != "v19."* ]] \
     && [[ $nodeVer != "v20."* ]] \
-    && [[ $nodeVer != "v21."* ]]; then 
+    && [[ $nodeVer != "v21."* ]] \
+    && [[ $nodeVer != "v22."* ]]; then 
       PRINT FATAL "Required dependency \"node\" is using an unsupported version."
     fi
 
@@ -172,6 +171,7 @@ assignflags() {
   F_developerIgnoreRebuild=false
   F_developerForceMigrate=false
   F_developerKeepApplicationCache=false
+  F_developerEscalateExportScript=false
   if [[ ( $flags == *"ignorePlaceholders,"*            ) || ( $flags == *"ignorePlaceholders"            ) ]]; then F_ignorePlaceholders=true            ;fi
   if [[ ( $flags == *"forceLegacyPlaceholders,"*       ) || ( $flags == *"forceLegacyPlaceholders"       ) ]]; then F_forceLegacyPlaceholders=true       ;fi
   if [[ ( $flags == *"hasInstallScript,"*              ) || ( $flags == *"hasInstallScript"              ) ]]; then F_hasInstallScript=true              ;fi
@@ -181,6 +181,7 @@ assignflags() {
   if [[ ( $flags == *"developerIgnoreRebuild,"*        ) || ( $flags == *"developerIgnoreRebuild"        ) ]]; then F_developerIgnoreRebuild=true        ;fi
   if [[ ( $flags == *"developerForceMigrate,"*         ) || ( $flags == *"developerForceMigrate"         ) ]]; then F_developerForceMigrate=true         ;fi
   if [[ ( $flags == *"developerKeepApplicationCache,"* ) || ( $flags == *"developerKeepApplicationCache" ) ]]; then F_developerKeepApplicationCache=true ;fi
+  if [[ ( $flags == *"developerEscalateExportScript,"* ) || ( $flags == *"developerEscalateExportScript" ) ]]; then F_developerEscalateExportScript=true ;fi
 }
 
 
@@ -204,10 +205,8 @@ if [[ $1 != "-bash" ]]; then
   else
     # Only run if Blueprint is not in the process of upgrading.
     if [[ $1 != "--post-upgrade" ]]; then
-      echo -e "  ██\n██  ██\n  ████\n"; # Blueprint "ascii" "logo".
-      if [[ $DOCKER == "y" ]]; then
-        PRINT WARNING "Docker is untested and you might run into issues."
-      fi
+      # Print Blueprint icon with ascii characters.
+      echo -e "  ██\n██  ██\n  ████\n";
     fi
 
     PRINT INFO "Searching and validating framework dependencies.."
@@ -224,6 +223,7 @@ if [[ $1 != "-bash" ]]; then
 
     PRINT INFO "Replacing internal placeholders.."
     # Update folder placeholder on PlaceholderService and admin layout.
+    # Should avoid doing stuff this way in the future!
     sed -i "s~::f~$FOLDER~g" $FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php
     sed -i "s~::f~$FOLDER~g" $FOLDER/app/BlueprintFramework/Libraries/ExtensionLibrary/Admin/BlueprintAdminLibrary.php
     sed -i "s~::f~$FOLDER~g" $FOLDER/app/BlueprintFramework/Libraries/ExtensionLibrary/Client/BlueprintClientLibrary.php
@@ -231,8 +231,16 @@ if [[ $1 != "-bash" ]]; then
     cp $FOLDER/.blueprint/assets/logo.jpg $FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg
 
     # Put application into maintenance.
-    PRINT INFO "Put application into maintenance mode."
-    php artisan down &>> $BLUEPRINT__DEBUG
+    PRINT INPUT "Would you like to put your application into maintenance while Blueprint is installing? (Y/n)"
+    read -r YN
+    if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
+      MAINTENANCE=true
+      PRINT INFO "Put application into maintenance mode."
+      php artisan down &>> $BLUEPRINT__DEBUG
+    else
+      MAINTENANCE=false
+      PRINT INFO "Putting application into maintenance has been skipped."
+    fi
 
     # Flush cache.
     PRINT INFO "Flushing view, config and route cache.."
@@ -266,11 +274,13 @@ if [[ $1 != "-bash" ]]; then
     PRINT INFO "Rebuilding panel assets.."
     yarn run build:production --progress
 
-    if [[ $DOCKER != "y" ]]; then
+    if [[ $DOCKER != "y" ]] && ! $MAINTENANCE; then
       # Put application into production.
       PRINT INFO "Put application into production."
       php artisan up &>> $BLUEPRINT__DEBUG
+    fi
 
+    if [[ $DOCKER != "y" ]]; then
       # Sync some database values.
       PRINT INFO "Syncing Blueprint-related database values.."
       php artisan bp:sync
@@ -278,7 +288,7 @@ if [[ $1 != "-bash" ]]; then
 
     # Finish installation
     if [[ $1 != "--post-upgrade" ]]; then
-      PRINT SUCCESS "Blueprint has completed it's installation process."
+      PRINT SUCCESS "Blueprint has completed its installation process."
     fi
 
     dbAdd "blueprint.setupFinished"
@@ -389,15 +399,15 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   eval "$(parse_yaml .blueprint/tmp/"${n}"/conf.yml conf_)"
 
   # Add aliases for config values to make working with them easier.
-  name="$conf_info_name"
-  identifier="$conf_info_identifier"
-  description="$conf_info_description"
-  flags="$conf_info_flags" #(optional)
-  version="$conf_info_version"
-  target="$conf_info_target"
-  author="$conf_info_author" #(optional)
-  icon="$conf_info_icon" #(optional)
-  website="$conf_info_website"; #(optional)
+  name="${conf_info_name//&/\\&}"
+  identifier="${conf_info_identifier//&/\\&}"
+  description="${conf_info_description//&/\\&}"
+  flags="${conf_info_flags//&/\\&}" #(optional)
+  version="${conf_info_version//&/\\&}"
+  target="${conf_info_target//&/\\&}"
+  author="${conf_info_author//&/\\&}" #(optional)
+  icon="${conf_info_icon//&/\\&}" #(optional)
+  website="${conf_info_website//&/\\&}"; #(optional)
 
   admin_view="$conf_admin_view"
   admin_controller="$conf_admin_controller"; #(optional)
@@ -420,6 +430,8 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
 
   database_migrations="$conf_database_migrations"; #(optional)
 
+  console_artisan="$conf_console_artisan"; #(optional)
+
   
   # assign config aliases
   if [[ $requests_routers_application == "" ]] \
@@ -430,22 +442,23 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   fi
   
   # "prevent" folder "escaping"
-  if [[ ( $icon                         == "/"* ) || ( $icon                         == *"/.."* ) || ( $icon                         == *"../"* ) || ( $icon                         == *"/../"* ) || ( $icon                         == *"~"* ) || ( $icon                         == *"\n"* ) ]] \
-  || [[ ( $admin_view                   == "/"* ) || ( $admin_view                   == *"/.."* ) || ( $admin_view                   == *"../"* ) || ( $admin_view                   == *"/../"* ) || ( $admin_view                   == *"~"* ) || ( $admin_view                   == *"\n"* ) ]] \
-  || [[ ( $admin_controller             == "/"* ) || ( $admin_controller             == *"/.."* ) || ( $admin_controller             == *"../"* ) || ( $admin_controller             == *"/../"* ) || ( $admin_controller             == *"~"* ) || ( $admin_controller             == *"\n"* ) ]] \
-  || [[ ( $admin_css                    == "/"* ) || ( $admin_css                    == *"/.."* ) || ( $admin_css                    == *"../"* ) || ( $admin_css                    == *"/../"* ) || ( $admin_css                    == *"~"* ) || ( $admin_css                    == *"\n"* ) ]] \
-  || [[ ( $admin_wrapper                == "/"* ) || ( $admin_wrapper                == *"/.."* ) || ( $admin_wrapper                == *"../"* ) || ( $admin_wrapper                == *"/../"* ) || ( $admin_wrapper                == *"~"* ) || ( $admin_wrapper                == *"\n"* ) ]] \
-  || [[ ( $dashboard_css                == "/"* ) || ( $dashboard_css                == *"/.."* ) || ( $dashboard_css                == *"../"* ) || ( $dashboard_css                == *"/../"* ) || ( $dashboard_css                == *"~"* ) || ( $dashboard_css                == *"\n"* ) ]] \
-  || [[ ( $dashboard_wrapper            == "/"* ) || ( $dashboard_wrapper            == *"/.."* ) || ( $dashboard_wrapper            == *"../"* ) || ( $dashboard_wrapper            == *"/../"* ) || ( $dashboard_wrapper            == *"~"* ) || ( $dashboard_wrapper            == *"\n"* ) ]] \
-  || [[ ( $dashboard_components         == "/"* ) || ( $dashboard_components         == *"/.."* ) || ( $dashboard_components         == *"../"* ) || ( $dashboard_components         == *"/../"* ) || ( $dashboard_components         == *"~"* ) || ( $dashboard_components         == *"\n"* ) ]] \
-  || [[ ( $data_directory               == "/"* ) || ( $data_directory               == *"/.."* ) || ( $data_directory               == *"../"* ) || ( $data_directory               == *"/../"* ) || ( $data_directory               == *"~"* ) || ( $data_directory               == *"\n"* ) ]] \
-  || [[ ( $data_public                  == "/"* ) || ( $data_public                  == *"/.."* ) || ( $data_public                  == *"../"* ) || ( $data_public                  == *"/../"* ) || ( $data_public                  == *"~"* ) || ( $data_public                  == *"\n"* ) ]] \
-  || [[ ( $requests_views               == "/"* ) || ( $requests_views               == *"/.."* ) || ( $requests_views               == *"../"* ) || ( $requests_views               == *"/../"* ) || ( $requests_views               == *"~"* ) || ( $requests_views               == *"\n"* ) ]] \
-  || [[ ( $requests_controllers         == "/"* ) || ( $requests_controllers         == *"/.."* ) || ( $requests_controllers         == *"../"* ) || ( $requests_controllers         == *"/../"* ) || ( $requests_controllers         == *"~"* ) || ( $requests_controllers         == *"\n"* ) ]] \
-  || [[ ( $requests_routers_application == "/"* ) || ( $requests_routers_application == *"/.."* ) || ( $requests_routers_application == *"../"* ) || ( $requests_routers_application == *"/../"* ) || ( $requests_routers_application == *"~"* ) || ( $requests_routers_application == *"\n"* ) ]] \
-  || [[ ( $requests_routers_client      == "/"* ) || ( $requests_routers_client      == *"/.."* ) || ( $requests_routers_client      == *"../"* ) || ( $requests_routers_client      == *"/../"* ) || ( $requests_routers_client      == *"~"* ) || ( $requests_routers_client      == *"\n"* ) ]] \
-  || [[ ( $requests_routers_web         == "/"* ) || ( $requests_routers_web         == *"/.."* ) || ( $requests_routers_web         == *"../"* ) || ( $requests_routers_web         == *"/../"* ) || ( $requests_routers_web         == *"~"* ) || ( $requests_routers_web         == *"\n"* ) ]] \
-  || [[ ( $database_migrations          == "/"* ) || ( $database_migrations          == *"/.."* ) || ( $database_migrations          == *"../"* ) || ( $database_migrations          == *"/../"* ) || ( $database_migrations          == *"~"* ) || ( $database_migrations          == *"\n"* ) ]]; then
+  if [[ ( $icon                         == "/"* ) || ( $icon                         == *"/.."* ) || ( $icon                         == *"../"* ) || ( $icon                         == *"/../"* ) || ( $icon                         == *"~"* ) || ( $icon                         == *"\\"* ) ]] \
+  || [[ ( $admin_view                   == "/"* ) || ( $admin_view                   == *"/.."* ) || ( $admin_view                   == *"../"* ) || ( $admin_view                   == *"/../"* ) || ( $admin_view                   == *"~"* ) || ( $admin_view                   == *"\\"* ) ]] \
+  || [[ ( $admin_controller             == "/"* ) || ( $admin_controller             == *"/.."* ) || ( $admin_controller             == *"../"* ) || ( $admin_controller             == *"/../"* ) || ( $admin_controller             == *"~"* ) || ( $admin_controller             == *"\\"* ) ]] \
+  || [[ ( $admin_css                    == "/"* ) || ( $admin_css                    == *"/.."* ) || ( $admin_css                    == *"../"* ) || ( $admin_css                    == *"/../"* ) || ( $admin_css                    == *"~"* ) || ( $admin_css                    == *"\\"* ) ]] \
+  || [[ ( $admin_wrapper                == "/"* ) || ( $admin_wrapper                == *"/.."* ) || ( $admin_wrapper                == *"../"* ) || ( $admin_wrapper                == *"/../"* ) || ( $admin_wrapper                == *"~"* ) || ( $admin_wrapper                == *"\\"* ) ]] \
+  || [[ ( $dashboard_css                == "/"* ) || ( $dashboard_css                == *"/.."* ) || ( $dashboard_css                == *"../"* ) || ( $dashboard_css                == *"/../"* ) || ( $dashboard_css                == *"~"* ) || ( $dashboard_css                == *"\\"* ) ]] \
+  || [[ ( $dashboard_wrapper            == "/"* ) || ( $dashboard_wrapper            == *"/.."* ) || ( $dashboard_wrapper            == *"../"* ) || ( $dashboard_wrapper            == *"/../"* ) || ( $dashboard_wrapper            == *"~"* ) || ( $dashboard_wrapper            == *"\\"* ) ]] \
+  || [[ ( $dashboard_components         == "/"* ) || ( $dashboard_components         == *"/.."* ) || ( $dashboard_components         == *"../"* ) || ( $dashboard_components         == *"/../"* ) || ( $dashboard_components         == *"~"* ) || ( $dashboard_components         == *"\\"* ) ]] \
+  || [[ ( $data_directory               == "/"* ) || ( $data_directory               == *"/.."* ) || ( $data_directory               == *"../"* ) || ( $data_directory               == *"/../"* ) || ( $data_directory               == *"~"* ) || ( $data_directory               == *"\\"* ) ]] \
+  || [[ ( $data_public                  == "/"* ) || ( $data_public                  == *"/.."* ) || ( $data_public                  == *"../"* ) || ( $data_public                  == *"/../"* ) || ( $data_public                  == *"~"* ) || ( $data_public                  == *"\\"* ) ]] \
+  || [[ ( $requests_views               == "/"* ) || ( $requests_views               == *"/.."* ) || ( $requests_views               == *"../"* ) || ( $requests_views               == *"/../"* ) || ( $requests_views               == *"~"* ) || ( $requests_views               == *"\\"* ) ]] \
+  || [[ ( $requests_controllers         == "/"* ) || ( $requests_controllers         == *"/.."* ) || ( $requests_controllers         == *"../"* ) || ( $requests_controllers         == *"/../"* ) || ( $requests_controllers         == *"~"* ) || ( $requests_controllers         == *"\\"* ) ]] \
+  || [[ ( $requests_routers_application == "/"* ) || ( $requests_routers_application == *"/.."* ) || ( $requests_routers_application == *"../"* ) || ( $requests_routers_application == *"/../"* ) || ( $requests_routers_application == *"~"* ) || ( $requests_routers_application == *"\\"* ) ]] \
+  || [[ ( $requests_routers_client      == "/"* ) || ( $requests_routers_client      == *"/.."* ) || ( $requests_routers_client      == *"../"* ) || ( $requests_routers_client      == *"/../"* ) || ( $requests_routers_client      == *"~"* ) || ( $requests_routers_client      == *"\\"* ) ]] \
+  || [[ ( $requests_routers_web         == "/"* ) || ( $requests_routers_web         == *"/.."* ) || ( $requests_routers_web         == *"../"* ) || ( $requests_routers_web         == *"/../"* ) || ( $requests_routers_web         == *"~"* ) || ( $requests_routers_web         == *"\\"* ) ]] \
+  || [[ ( $database_migrations          == "/"* ) || ( $database_migrations          == *"/.."* ) || ( $database_migrations          == *"../"* ) || ( $database_migrations          == *"/../"* ) || ( $database_migrations          == *"~"* ) || ( $database_migrations          == *"\\"* ) ]] \
+  || [[ ( $console_artisan              == "/"* ) || ( $console_artisan              == *"/.."* ) || ( $console_artisan              == *"../"* ) || ( $console_artisan              == *"/../"* ) || ( $console_artisan              == *"~"* ) || ( $console_artisan              == *"\\"* ) ]]; then
     rm -R ".blueprint/tmp/$n"
     PRINT FATAL "Config file paths cannot escape the extension bundle."
     exit 1
@@ -457,7 +470,8 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   || [[ ( $data_public == *"/"          ) ]] \
   || [[ ( $requests_views == *"/"       ) ]] \
   || [[ ( $requests_controllers == *"/" ) ]] \
-  || [[ ( $database_migrations == *"/"  ) ]]; then
+  || [[ ( $database_migrations == *"/"  ) ]] \
+  || [[ ( $console_artisan == *"/"      ) ]]; then
     rm -R ".blueprint/tmp/$n"
     PRINT FATAL "Directory paths in conf.yml should not end with a slash."
     exit 1
@@ -787,6 +801,14 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     fi
   fi
 
+  # Place and link artisan directory.
+  if [[ $console_artisan != "" ]]; then
+    PRINT INFO "Cloning and linking artisan directory.."
+    mkdir -p ".blueprint/extensions/$identifier/console/artisan"
+    cp -R ".blueprint/tmp/$n/$console_artisan/"* ".blueprint/extensions/$identifier/console/artisan/" 2>> $BLUEPRINT__DEBUG
+    ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/console/artisan "$FOLDER/app/Console/Commands/BlueprintFramework/Extensions/$identifier" 2>> $BLUEPRINT__DEBUG
+  fi
+
   # Create, link and connect components directory.
   if [[ $dashboard_components != "" ]]; then
     YARN="y"
@@ -902,6 +924,10 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
 
       # server
       PLACE_REACT "$Components_Server_Terminal_BeforeContent" "Server/Terminal/BeforeContent.tsx" "$OldComponents_Server_Terminal_BeforeContent"
+      PLACE_REACT "$Components_Server_Terminal_AdditionalPowerButtons" "Server/Terminal/AdditionalPowerButtons.tsx" "$OldComponents_Server_Terminal_AdditionalPowerButtons"
+      PLACE_REACT "$Components_Server_Terminal_BeforeInformation" "Server/Terminal/BeforeInformation.tsx" "$OldComponents_Server_Terminal_BeforeInformation"
+      PLACE_REACT "$Components_Server_Terminal_AfterInformation" "Server/Terminal/AfterInformation.tsx" "$OldComponents_Server_Terminal_AfterInformation"
+      PLACE_REACT "$Components_Server_Terminal_CommandRow" "Server/Terminal/CommandRow.tsx" "$OldComponents_Server_Terminal_CommandRow"
       PLACE_REACT "$Components_Server_Terminal_AfterContent" "Server/Terminal/AfterContent.tsx" "$OldComponents_Server_Terminal_AfterContent"
 
       PLACE_REACT "$Components_Server_Files_Browse_BeforeContent" "Server/Files/Browse/BeforeContent.tsx" "$OldComponents_Server_Files_Browse_BeforeContent"
@@ -1379,14 +1405,16 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
       chmod --silent +x ".blueprint/extensions/$identifier/private/install.sh" 2>> $BLUEPRINT__DEBUG
 
       # Run script while also parsing some useful variables for the install script to use.
-      EXTENSION_IDENTIFIER="$identifier" \
-      EXTENSION_TARGET="$target"         \
-      EXTENSION_VERSION="$version"       \
-      PTERODACTYL_DIRECTORY="$FOLDER"    \
-      BLUEPRINT_VERSION="$VERSION"       \
-      BLUEPRINT_DEVELOPER="$dev"         \
-      bash ".blueprint/extensions/$identifier/private/install.sh"
-
+      su "$WEBUSER" -s "$USERSHELL" -c "
+        cd \"$FOLDER\";
+        EXTENSION_IDENTIFIER=\"$identifier\" \
+        EXTENSION_TARGET=\"$target\"         \
+        EXTENSION_VERSION=\"$version\"       \
+        PTERODACTYL_DIRECTORY=\"$FOLDER\"    \
+        BLUEPRINT_VERSION=\"$VERSION\"       \
+        BLUEPRINT_DEVELOPER=\"$dev\"         \
+        bash .blueprint/extensions/$identifier/private/install.sh
+      "
       echo -e "\e[0m\x1b[0m\033[0m"
     fi
   fi
@@ -1426,15 +1454,15 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
   if [[ -f ".blueprint/extensions/$3/private/.store/conf.yml" ]]; then 
     eval "$(parse_yaml ".blueprint/extensions/$3/private/.store/conf.yml" conf_)"
     # Add aliases for config values to make working with them easier.
-    name="$conf_info_name";    
-    identifier="$conf_info_identifier"
-    description="$conf_info_description"
-    flags="$conf_info_flags" #(optional)
-    version="$conf_info_version"
-    target="$conf_info_target"
-    author="$conf_info_author" #(optional)
-    icon="$conf_info_icon" #(optional)
-    website="$conf_info_website"; #(optional)
+    name="${conf_info_name//&/\\&}"
+    identifier="${conf_info_identifier//&/\\&}"
+    description="${conf_info_description//&/\\&}"
+    flags="${conf_info_flags//&/\\&}" #(optional)
+    version="${conf_info_version//&/\\&}"
+    target="${conf_info_target//&/\\&}"
+    author="${conf_info_author//&/\\&}" #(optional)
+    icon="${conf_info_icon//&/\\&}" #(optional)
+    website="${conf_info_website//&/\\&}"; #(optional)
 
     admin_view="$conf_admin_view"
     admin_controller="$conf_admin_controller"; #(optional)
@@ -1450,11 +1478,14 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
 
     requests_views="$conf_requests_views"; #(optional)
     requests_controllers="$conf_requests_controllers"; #(optional)
+    requests_routers="$conf_requests_routers"; #(optional)
     requests_routers_application="$conf_requests_routers_application"; #(optional)
     requests_routers_client="$conf_requests_routers_client"; #(optional)
     requests_routers_web="$conf_requests_routers_web"; #(optional)
 
     database_migrations="$conf_database_migrations"; #(optional)
+
+    console_artisan="$conf_console_artisan"; #(optional)
   else 
     PRINT FATAL "Extension configuration file not found or detected."
     exit 1
@@ -1476,12 +1507,15 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
     chmod +x ".blueprint/extensions/$identifier/private/remove.sh"
 
     # Run script while also parsing some useful variables for the uninstall script to use.
-    EXTENSION_IDENTIFIER="$identifier" \
-    EXTENSION_TARGET="$target"         \
-    EXTENSION_VERSION="$version"       \
-    PTERODACTYL_DIRECTORY="$FOLDER"    \
-    BLUEPRINT_VERSION="$VERSION"       \
-    bash ".blueprint/extensions/$identifier/private/remove.sh"
+    su "$WEBUSER" -s "$USERSHELL" -c "
+        cd \"$FOLDER\";
+        EXTENSION_IDENTIFIER=\"$identifier\" \
+        EXTENSION_TARGET=\"$target\"         \
+        EXTENSION_VERSION=\"$version\"       \
+        PTERODACTYL_DIRECTORY=\"$FOLDER\"    \
+        BLUEPRINT_VERSION=\"$VERSION\"       \
+        bash .blueprint/extensions/$identifier/private/remove.sh
+      "
     
     echo -e "\e[0m\x1b[0m\033[0m"
   fi
@@ -1581,6 +1615,10 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
 
     # server
     REMOVE_REACT "$Components_Server_Terminal_BeforeContent" "Server/Terminal/BeforeContent.tsx"
+    REMOVE_REACT "$Components_Server_Terminal_AdditionalPowerButtons" "Server/Terminal/AdditionalPowerButtons.tsx"
+    REMOVE_REACT "$Components_Server_Terminal_BeforeInformation" "Server/Terminal/BeforeInformation.tsx"
+    REMOVE_REACT "$Components_Server_Terminal_AfterInformation" "Server/Terminal/AfterInformation.tsx"
+    REMOVE_REACT "$Components_Server_Terminal_CommandRow" "Server/Terminal/CommandRow.tsx"
     REMOVE_REACT "$Components_Server_Terminal_AfterContent" "Server/Terminal/AfterContent.tsx"
 
     REMOVE_REACT "$Components_Server_Files_Browse_BeforeContent" "Server/Files/Browse/BeforeContent.tsx"
@@ -1664,7 +1702,8 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
   fi
 
   # Remove router files
-  if [[ $requests_routers_application != "" ]] \
+  if [[ $requests_routers             != "" ]] \
+  || [[ $requests_routers_application != "" ]] \
   || [[ $requests_routers_client      != "" ]] \
   || [[ $requests_routers_web         != "" ]]; then
     PRINT INFO "Removing and unlinking router files.."
@@ -1674,6 +1713,15 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
       "routes/blueprint/client/$identifier.php" \
       "routes/blueprint/web/$identifier.php" \
       &>> $BLUEPRINT__DEBUG
+  fi
+
+  # Remove console folder
+  if [[ $console_artisan != "" ]]; then # further expand on this if needed
+    PRINT INFO "Removing and unlinking console folder.."
+    rm -R \
+      ".blueprint/extensions/$identifier/console" \
+      "app/Console/Commands/BlueprintFramework/Extensions/$identifier"
+      # add more files if needed
   fi
 
   # Remove private folder
@@ -1970,14 +2018,26 @@ if [[ ( $2 == "-export" || $2 == "-e" ) ]]; then VCMD="y"
     chmod +x "${conf_data_directory}""/export.sh"
 
     # Run script while also parsing some useful variables for the export script to use.
-    EXTENSION_IDENTIFIER="$conf_info_identifier"        \
-    EXTENSION_TARGET="$conf_info_target"                \
-    EXTENSION_VERSION="$conf_info_version"              \
-    PTERODACTYL_DIRECTORY="$FOLDER"                     \
-    BLUEPRINT_EXPORT_DIRECTORY="$FOLDER/.blueprint/tmp" \
-    BLUEPRINT_VERSION="$VERSION"                        \
-    bash "${conf_data_directory}""/export.sh"
-
+    if $F_developerEscalateExportScript; then
+      EXTENSION_IDENTIFIER="$conf_info_identifier"        \
+      EXTENSION_TARGET="$conf_info_target"                \
+      EXTENSION_VERSION="$conf_info_version"              \
+      PTERODACTYL_DIRECTORY="$FOLDER"                     \
+      BLUEPRINT_EXPORT_DIRECTORY="$FOLDER/.blueprint/tmp" \
+      BLUEPRINT_VERSION="$VERSION"                        \
+      bash "${conf_data_directory}"/export.sh
+    else
+      su "$WEBUSER" -s "$USERSHELL" -c "
+          cd \"$FOLDER\"/.blueprint/tmp;
+          EXTENSION_IDENTIFIER=\"$conf_info_identifier\"        \
+          EXTENSION_TARGET=\"$conf_info_target\"                \
+          EXTENSION_VERSION=\"$conf_info_version\"              \
+          PTERODACTYL_DIRECTORY=\"$FOLDER\"                     \
+          BLUEPRINT_EXPORT_DIRECTORY=\"$FOLDER/.blueprint/tmp\" \
+          BLUEPRINT_VERSION=\"$VERSION\"                        \
+          bash \"${conf_data_directory}\"/export.sh
+        "
+    fi
     echo -e "\e[0m\x1b[0m\033[0m"
   fi
 
@@ -2034,8 +2094,8 @@ if [[ ( $2 == "-info" || $2 == "-f" ) ]]; then VCMD="y"
   fetchlocale()     { printf "\x1b[0m\x1b[37m"; if [[ $(grabAppLocale) != "" ]]; then grabAppLocale; else echo "none"; fi }
   fetchtimezone()   { printf "\x1b[0m\x1b[37m"; if [[ $(grabAppTimezone) != "" ]]; then grabAppTimezone; else echo "none"; fi }
   fetchextensions() { printf "\x1b[0m\x1b[37m"; tr -cd ',' <.blueprint/extensions/blueprint/private/db/installed_extensions | wc -c | tr -d ' '; }
-  fetchdeveloper()  { printf "\x1b[0m\x1b[37m"; if dbValidate "blueprint.developerEnabled"; then echo "true"; else echo "false"; fi; }
-  fetchtelemetry()  { printf "\x1b[0m\x1b[37m"; if [[ $(cat .blueprint/extensions/blueprint/private/db/telemetry_id) == "KEY_NOT_UPDATED" ]]; then echo "false"; else echo "true"; fi; }
+  fetchdeveloper()  { printf "\x1b[0m\x1b[37m"; if dbValidate "blueprint.developerEnabled"; then echo "true"; else echo "false"; fi }
+  fetchtelemetry()  { printf "\x1b[0m\x1b[37m"; if [[ $(cat .blueprint/extensions/blueprint/private/db/telemetry_id) == "KEY_NOT_UPDATED" ]]; then echo "false"; else echo "true"; fi }
   fetchnode()       { printf "\x1b[0m\x1b[37m"; if [[ $(node -v) != "" ]]; then node -v; else echo "none"; fi }
   fetchyarn()       { printf "\x1b[0m\x1b[37m"; if [[ $(yarn -v) != "" ]]; then yarn -v; else echo "none"; fi }
 
@@ -2105,13 +2165,13 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
   mkdir -p $FOLDER/.tmp/files
   cd $FOLDER/.tmp/files || cdhalt
   if [[ $3 == "remote" ]]; then
-    if [[ $4 == "" ]]; then REMOTE_REPOSITORY="BlueprintFramework/main"
+    if [[ $4 == "" ]]; then REMOTE_REPOSITORY="$REPOSITORY"
     else REMOTE_REPOSITORY="$4"; fi
     # download latest commit
     git clone https://github.com/"$REMOTE_REPOSITORY".git main
   else
     # download latest release
-    LOCATION=$(curl -s https://api.github.com/repos/BlueprintFramework/main/releases/latest \
+    LOCATION=$(curl -s https://api.github.com/repos/"$REPOSITORY"/releases/latest \
   | grep "zipball_url" \
   | awk '{ print $2 }' \
   | sed 's/,$//'       \
@@ -2157,8 +2217,12 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
     &>> /dev/null # cannot forward to debug dir because it does not exist
 
   chmod +x blueprint.sh
-  sed -i -E "s|FOLDER=\"/var/www/pterodactyl\" #;|FOLDER=\"$FOLDER\" #;|g" $FOLDER/blueprint.sh
-  sed -i -E "s|OWNERSHIP=\"www-data:www-data\" #;|OWNERSHIP=\"$OWNERSHIP\" #;|g" $FOLDER/blueprint.sh
+  sed -i -E \
+    -e "s|FOLDER=\"/var/www/pterodactyl\" #;|FOLDER=\"$FOLDER\" #;|g" \
+    -e "s|OWNERSHIP=\"www-data:www-data\" #;|OWNERSHIP=\"$OWNERSHIP\" #;|g" \
+    -e "s|WEBUSER=\"www-data\" #;|WEBUSER=\"$WEBUSER\" #;|g" \
+    -e "s|USERSHELL=\"/bin/bash\" #;|USERSHELL=\"$USERSHELL\" #;|g" \
+    $FOLDER/blueprint.sh
   mv $FOLDER/blueprint $FOLDER/.blueprint;
   bash blueprint.sh --post-upgrade
 
@@ -2214,5 +2278,5 @@ fi
 if [[ ${VCMD} != "y" && $1 == "-bash" ]]; then
   # This is logged as a "fatal" error since it's something that is making Blueprint run unsuccessfully.
   PRINT FATAL "'$2' is not a valid command or argument. Use argument '-help' for a list of commands."
-  exit 1
+  exit 2
 fi

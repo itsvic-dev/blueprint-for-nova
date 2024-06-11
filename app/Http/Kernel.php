@@ -12,6 +12,7 @@ use Pterodactyl\Http\Middleware\EncryptCookies;
 use Pterodactyl\Http\Middleware\Api\IsValidJson;
 use Pterodactyl\Http\Middleware\VerifyCsrfToken;
 use Pterodactyl\Http\Middleware\VerifyReCaptcha;
+use Pterodactyl\Http\Middleware\AdminAuthenticate;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Pterodactyl\Http\Middleware\LanguageMiddleware;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
@@ -83,6 +84,9 @@ class Kernel extends HttpKernel
         'client-api' => [
             SubstituteClientBindings::class,
             RequireClientApiKey::class,
+        ],
+        'admin-api' => [
+            AdminAuthenticate::class,
         ],
         'daemon' => [
             SubstituteBindings::class,

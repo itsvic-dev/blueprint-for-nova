@@ -1,5 +1,5 @@
 # Blueprint for Nova
 
-This is a WIP fork of the [Blueprint](https://blueprint.zip) framework to work with the [Nova theme](https://getnova.zip).
+**Blueprint for Nova** is a fork of [Blueprint](https://blueprint.zip), an extension framework for Pterodactyl.
 
 TODO: better README

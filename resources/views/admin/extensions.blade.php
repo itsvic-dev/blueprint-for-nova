@@ -21,8 +21,33 @@
           <div class="extension-btn-overlay"></div>
           <img src="/assets/extensions/blueprint/logo.jpg" alt="logo" class="extension-btn-image2"/>
           <img src="/assets/extensions/blueprint/logo.jpg" alt="logo" class="extension-btn-image"/>
-          <p class="extension-btn-text">Blueprint for Nova</p>
-          <p class="extension-btn-version">{{ $PlaceholderService->version() }}</p>
+          <p class="extension-btn-text">Blueprint</p>
+          <p class="extension-btn-version">
+            <span style="padding-right:5px">
+              <i class="bi bi-gear-fill"></i>
+              <b>system</b>
+            </span>
+            {{ $PlaceholderService->version() }}
+          </p>
+          <i class="bi bi-arrow-right-short" style="font-size: 34px;position: absolute;top: 15px;right: 30px;"></i>
+        </button>
+      </a>
+    </div>
+
+    <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 text-center">
+      <a href="{{ route('admin.nova') }}">
+        <button class="btn extension-btn" style="width:100%;margin-bottom:17px;">
+          <div class="extension-btn-overlay"></div>
+          <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image2"/>
+          <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image"/>
+          <p class="extension-btn-text">Nova</p>
+          <p class="extension-btn-version">
+            <span style="padding-right:5px">
+              <i class="bi bi-gear-fill"></i>
+              <b>system</b>
+            </span>
+            {{ $NovaVersionService->getCurrentVersion() }}
+          </p>
           <i class="bi bi-arrow-right-short" style="font-size: 34px;position: absolute;top: 15px;right: 30px;"></i>
         </button>
       </a>

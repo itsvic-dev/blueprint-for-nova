@@ -6,9 +6,7 @@
 
 # This should allow Blueprint to run in Docker. Please note that changing the $FOLDER variable after running
 # the Blueprint installation script will not change anything in any files besides blueprint.sh.
-  FOLDER="$(realpath $(dirname $0))" #;
-# Technically shouldn't be needed now, but I'm not going to touch this for now just in case it breaks stuff on Docker. -- @itsvic-dev
-  DOCKERFOLDER="/app"
+  FOLDER=$(realpath "$(dirname "$0")")
 
 # This stores the webserver ownership user which Blueprint uses when applying webserver permissions.
   OWNERSHIP="www-data:www-data" #;
@@ -28,23 +26,21 @@
 # Check for panels that are using Docker, which should have better support in the future.
 if [[ -f "/.dockerenv" ]]; then
   DOCKER="y"
-  # Force Docker-users onto the /app folder for Pterodactyl as the Pterodactyl developers have done
-  # that already anyways.
-  FOLDER="$DOCKERFOLDER"
+  FOLDER="/app"
 else
   DOCKER="n"
 fi
 
 # This has caused a bunch of errors but is just here to make sure people actually upload the
 # "blueprint" folder onto their panel when installing Blueprint. Pick your poison.
-if [[ -d "$FOLDER/blueprint" ]]; then mv $FOLDER/blueprint $FOLDER/.blueprint; fi
+if [[ -d "$FOLDER/blueprint" ]]; then mv "$FOLDER/blueprint" "$FOLDER/.blueprint"; fi
 
 if [[ $VERSION != "" ]]; then
   # This function makes sure some placeholders get replaced with the current Blueprint version.
   if [[ ! -f "$FOLDER/.blueprint/extensions/blueprint/private/db/version" ]]; then
-    sed -E -i "s*::v*$VERSION*g" $FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php
-    sed -E -i "s*::v*$VERSION*g" $FOLDER/.blueprint/extensions/blueprint/public/index.html
-    touch $FOLDER/.blueprint/extensions/blueprint/private/db/version
+    sed -E -i "s*::v*$VERSION*g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
+    sed -E -i "s*::v*$VERSION*g" "$FOLDER/.blueprint/extensions/blueprint/public/index.html"
+    touch "$FOLDER/.blueprint/extensions/blueprint/private/db/version"
   fi
 fi
 
@@ -57,7 +53,7 @@ export NODE_OPTIONS=--openssl-legacy-provider
 __BuildDir=".blueprint/extensions/blueprint/private/build"
 
 # Automatically navigate to the Pterodactyl directory when running the core.
-cd $FOLDER || return
+cd "$FOLDER" || return
 
 # Import libraries.
 source .blueprint/lib/parse_yaml.sh || missinglibs+="[parse_yaml]"
@@ -79,9 +75,9 @@ if [[ "$1" == "-config" ]]; then
   # cDEVELOPER
   # Enable/Disable developer mode.
   if [[ "$cDEVELOPER" != "" ]]; then
-    if [[ "$cDEVELOPER" == "true" ]]; then 
+    if [[ "$cDEVELOPER" == "true" ]]; then
       dbAdd "blueprint.developerEnabled"
-    else 
+    else
       dbRemove "blueprint.developerEnabled"
     fi
   fi
@@ -101,7 +97,7 @@ depend() {
   && [[ $nodeVer != "v19."* ]] \
   && [[ $nodeVer != "v20."* ]] \
   && [[ $nodeVer != "v21."* ]] \
-  && [[ $nodeVer != "v22."* ]]; then 
+  && [[ $nodeVer != "v22."* ]]; then
     DEPEND_MISSING=true
   fi
 
@@ -126,14 +122,14 @@ depend() {
   fi
 
   # Exit when missing dependencies.
-  if [[ $DEPEND_MISSING == true ]]; then 
+  if [[ $DEPEND_MISSING == true ]]; then
     PRINT FATAL "Some framework dependencies are not installed or detected."
 
     if [[ $nodeVer != "v18."* ]] \
     && [[ $nodeVer != "v19."* ]] \
     && [[ $nodeVer != "v20."* ]] \
     && [[ $nodeVer != "v21."* ]] \
-    && [[ $nodeVer != "v22."* ]]; then 
+    && [[ $nodeVer != "v22."* ]]; then
       PRINT FATAL "Required dependency \"node\" is using an unsupported version."
     fi
 
@@ -192,9 +188,9 @@ if ! [ -x "$(command -v blueprint)" ]; then
   {
     touch /usr/local/bin/blueprint
     chmod u+x \
-      $FOLDER/blueprint.sh \
+      "$FOLDER/blueprint.sh" \
       /usr/local/bin/blueprint
-  } >> $BLUEPRINT__DEBUG
+  } >> "$BLUEPRINT__DEBUG"
   echo -e "#!/bin/bash\nbash $FOLDER/blueprint.sh -bash \$@;" > /usr/local/bin/blueprint
 fi
 
@@ -217,14 +213,14 @@ if [[ $1 != "-bash" ]]; then
     # Link directories.
     PRINT INFO "Linking directories and filesystems.."
     {
-      ln -s -r -T $FOLDER/.blueprint/extensions/blueprint/public $FOLDER/public/extensions/blueprint
-      ln -s -r -T $FOLDER/.blueprint/extensions/blueprint/assets $FOLDER/public/assets/extensions/blueprint
-    } 2>> $BLUEPRINT__DEBUG
-    php artisan storage:link &>> $BLUEPRINT__DEBUG 
+      ln -s -r -T "$FOLDER/.blueprint/extensions/blueprint/public" "$FOLDER/public/extensions/blueprint"
+      ln -s -r -T "$FOLDER/.blueprint/extensions/blueprint/assets" "$FOLDER/public/assets/extensions/blueprint"
+    } 2>> "$BLUEPRINT__DEBUG"
+    php artisan storage:link &>> "$BLUEPRINT__DEBUG"
 
     PRINT INFO "Replacing internal placeholders.."
     # Copy "Blueprint" extension page logo from assets.
-    cp $FOLDER/.blueprint/assets/logo.jpg $FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg
+    cp "$FOLDER/.blueprint/assets/logo.jpg" "$FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg"
 
     # Put application into maintenance.
     PRINT INPUT "Would you like to put your application into maintenance while Blueprint is installing? (Y/n)"
@@ -232,7 +228,7 @@ if [[ $1 != "-bash" ]]; then
     if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
       MAINTENANCE=true
       PRINT INFO "Put application into maintenance mode."
-      php artisan down &>> $BLUEPRINT__DEBUG
+      php artisan down &>> "$BLUEPRINT__DEBUG"
     else
       MAINTENANCE=false
       PRINT INFO "Putting application into maintenance has been skipped."
@@ -245,14 +241,14 @@ if [[ $1 != "-bash" ]]; then
       php artisan config:cache
       php artisan route:clear
       php artisan cache:clear
-    } &>> $BLUEPRINT__DEBUG 
+    } &>> "$BLUEPRINT__DEBUG"
     updateCacheReminder
 
     # Run migrations if Blueprint is not upgrading.
     if [[ ( $1 != "--post-upgrade" ) && ( $DOCKER != "y" ) ]]; then
       PRINT INPUT "Would you like to migrate your database? (Y/n)"
       read -r YN
-      if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then 
+      if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
         PRINT INFO "Running database migrations.."
         php artisan migrate --force
       else
@@ -264,7 +260,7 @@ if [[ $1 != "-bash" ]]; then
     PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
     find "$FOLDER/" \
       -path "$FOLDER/node_modules" -prune \
-      -o -exec chown "$OWNERSHIP" {} + &>> $BLUEPRINT__DEBUG
+      -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
 
     # Rebuild panel assets.
     PRINT INFO "Rebuilding panel assets.."
@@ -273,7 +269,7 @@ if [[ $1 != "-bash" ]]; then
     if [[ $DOCKER != "y" ]] && ! $MAINTENANCE; then
       # Put application into production.
       PRINT INFO "Put application into production."
-      php artisan up &>> $BLUEPRINT__DEBUG
+      php artisan up &>> "$BLUEPRINT__DEBUG"
     fi
 
     if [[ $DOCKER != "y" ]]; then
@@ -289,7 +285,7 @@ if [[ $1 != "-bash" ]]; then
 
     dbAdd "blueprint.setupFinished"
     # Let the panel know the user has finished installation.
-    sed -i "s/NOTINSTALLED/INSTALLED/g" $FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php
+    sed -i "s/NOTINSTALLED/INSTALLED/g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
     exit 0
   fi
 fi
@@ -297,14 +293,14 @@ fi
 
 # help, -help, --help,
 # h,    -h,    --h
-if [[ ( $2 == "help" ) || ( $2 == "-help" ) || ( $2 == "--help" ) || 
+if [[ ( $2 == "help" ) || ( $2 == "-help" ) || ( $2 == "--help" ) ||
       ( $2 == "h" )    || ( $2 == "-h" )    || ( $2 == "--h" )    || ( $2 == "" ) ]]; then VCMD="y"
 
   if dbValidate "blueprint.developerEnabled"; then
     help_dev_status=""
     help_dev_primary="\e[34;1m"
     help_dev_secondary="\e[34m"
-  else 
+  else
     help_dev_status=" (disabled)"
     help_dev_primary="\x1b[2;1m"
     help_dev_secondary="\x1b[2m"
@@ -315,21 +311,21 @@ if [[ ( $2 == "help" ) || ( $2 == "-help" ) || ( $2 == "--help" ) ||
   -install [name]   -add -i  install/update a blueprint extension
   -remove [name]         -r  remove a blueprint extension
   \x1b[0m
-  
+
 ${help_dev_primary}Developer${help_dev_status}\x1b[0m${help_dev_secondary}
   -init                  -I  initialize development files
   -build                 -b  install/update your development files
   -export (expose)       -e  export/download your development files
   -wipe                  -w  remove your development files
   \x1b[0m
-  
+
 \x1b[34;1mMisc\x1b[0m\x1b[34m
   -version               -v  returns the blueprint version
   -help                  -h  displays this menu
   -info                  -f  show neofetch-like information about blueprint
   -debug [lines]             print given amount of debug lines
   \x1b[0m
-  
+
 \x1b[34;1mAdvanced\x1b[0m\x1b[34m
   -upgrade (remote <url>)    update/reset to another release
   -rerun-install             rerun the blueprint installation script
@@ -357,8 +353,10 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   else
     dev=false
     n="$3"
+
+    if [[ $n == *".blueprint" ]]; then n="${n::-10}";fi
     FILE="${n}.blueprint"
-    if [[ ( $FILE == *".blueprint.blueprint" ) && ( $n == *".blueprint" ) ]]; then PRINT FATAL "Argument one must not end with '.blueprint'.";exit 2; fi
+
     if [[ ! -f "$FILE" ]]; then PRINT FATAL "$FILE could not be found or detected.";exit 2;fi
 
     ZIP="${n}.zip"
@@ -382,10 +380,10 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   fi
 
   # Return to the Pterodactyl installation folder.
-  cd $FOLDER || cdhalt
+  cd "$FOLDER" || cdhalt
 
   # Get all strings from the conf.yml file and make them accessible as variables.
-  if [[ ! -f ".blueprint/tmp/$n/conf.yml" ]]; then 
+  if [[ ! -f ".blueprint/tmp/$n/conf.yml" ]]; then
     # Quit if the extension doesn't have a conf.yml file.
     rm -R ".blueprint/tmp/$n"
     PRINT FATAL "Extension configuration file not found or detected."
@@ -416,6 +414,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
 
   data_directory="$conf_data_directory"; #(optional)
   data_public="$conf_data_public"; #(optional)
+  data_console="$conf_data_console"; #(optional)
 
   requests_views="$conf_requests_views"; #(optional)
   requests_controllers="$conf_requests_controllers"; #(optional)
@@ -426,9 +425,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
 
   database_migrations="$conf_database_migrations"; #(optional)
 
-  console_artisan="$conf_console_artisan"; #(optional)
 
-  
   # assign config aliases
   if [[ $requests_routers_application == "" ]] \
   && [[ $requests_routers_client      == "" ]] \
@@ -436,7 +433,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   && [[ $requests_routers             != "" ]]; then
     requests_routers_application="$requests_routers"
   fi
-  
+
   # "prevent" folder "escaping"
   if [[ ( $icon                         == "/"* ) || ( $icon                         == *"/.."* ) || ( $icon                         == *"../"* ) || ( $icon                         == *"/../"* ) || ( $icon                         == *"~"* ) || ( $icon                         == *"\\"* ) ]] \
   || [[ ( $admin_view                   == "/"* ) || ( $admin_view                   == *"/.."* ) || ( $admin_view                   == *"../"* ) || ( $admin_view                   == *"/../"* ) || ( $admin_view                   == *"~"* ) || ( $admin_view                   == *"\\"* ) ]] \
@@ -448,13 +445,13 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   || [[ ( $dashboard_components         == "/"* ) || ( $dashboard_components         == *"/.."* ) || ( $dashboard_components         == *"../"* ) || ( $dashboard_components         == *"/../"* ) || ( $dashboard_components         == *"~"* ) || ( $dashboard_components         == *"\\"* ) ]] \
   || [[ ( $data_directory               == "/"* ) || ( $data_directory               == *"/.."* ) || ( $data_directory               == *"../"* ) || ( $data_directory               == *"/../"* ) || ( $data_directory               == *"~"* ) || ( $data_directory               == *"\\"* ) ]] \
   || [[ ( $data_public                  == "/"* ) || ( $data_public                  == *"/.."* ) || ( $data_public                  == *"../"* ) || ( $data_public                  == *"/../"* ) || ( $data_public                  == *"~"* ) || ( $data_public                  == *"\\"* ) ]] \
+  || [[ ( $data_console                 == "/"* ) || ( $data_console                 == *"/.."* ) || ( $data_console                 == *"../"* ) || ( $data_console                 == *"/../"* ) || ( $data_console                 == *"~"* ) || ( $data_console                 == *"\\"* ) ]] \
   || [[ ( $requests_views               == "/"* ) || ( $requests_views               == *"/.."* ) || ( $requests_views               == *"../"* ) || ( $requests_views               == *"/../"* ) || ( $requests_views               == *"~"* ) || ( $requests_views               == *"\\"* ) ]] \
   || [[ ( $requests_controllers         == "/"* ) || ( $requests_controllers         == *"/.."* ) || ( $requests_controllers         == *"../"* ) || ( $requests_controllers         == *"/../"* ) || ( $requests_controllers         == *"~"* ) || ( $requests_controllers         == *"\\"* ) ]] \
   || [[ ( $requests_routers_application == "/"* ) || ( $requests_routers_application == *"/.."* ) || ( $requests_routers_application == *"../"* ) || ( $requests_routers_application == *"/../"* ) || ( $requests_routers_application == *"~"* ) || ( $requests_routers_application == *"\\"* ) ]] \
   || [[ ( $requests_routers_client      == "/"* ) || ( $requests_routers_client      == *"/.."* ) || ( $requests_routers_client      == *"../"* ) || ( $requests_routers_client      == *"/../"* ) || ( $requests_routers_client      == *"~"* ) || ( $requests_routers_client      == *"\\"* ) ]] \
   || [[ ( $requests_routers_web         == "/"* ) || ( $requests_routers_web         == *"/.."* ) || ( $requests_routers_web         == *"../"* ) || ( $requests_routers_web         == *"/../"* ) || ( $requests_routers_web         == *"~"* ) || ( $requests_routers_web         == *"\\"* ) ]] \
-  || [[ ( $database_migrations          == "/"* ) || ( $database_migrations          == *"/.."* ) || ( $database_migrations          == *"../"* ) || ( $database_migrations          == *"/../"* ) || ( $database_migrations          == *"~"* ) || ( $database_migrations          == *"\\"* ) ]] \
-  || [[ ( $console_artisan              == "/"* ) || ( $console_artisan              == *"/.."* ) || ( $console_artisan              == *"../"* ) || ( $console_artisan              == *"/../"* ) || ( $console_artisan              == *"~"* ) || ( $console_artisan              == *"\\"* ) ]]; then
+  || [[ ( $database_migrations          == "/"* ) || ( $database_migrations          == *"/.."* ) || ( $database_migrations          == *"../"* ) || ( $database_migrations          == *"/../"* ) || ( $database_migrations          == *"~"* ) || ( $database_migrations          == *"\\"* ) ]]; then
     rm -R ".blueprint/tmp/$n"
     PRINT FATAL "Config file paths cannot escape the extension bundle."
     exit 1
@@ -464,10 +461,10 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   if [[ ( $dashboard_components == *"/" ) ]] \
   || [[ ( $data_directory == *"/"       ) ]] \
   || [[ ( $data_public == *"/"          ) ]] \
+  || [[ ( $data_console == *"/"         ) ]] \
   || [[ ( $requests_views == *"/"       ) ]] \
   || [[ ( $requests_controllers == *"/" ) ]] \
-  || [[ ( $database_migrations == *"/"  ) ]] \
-  || [[ ( $console_artisan == *"/"      ) ]]; then
+  || [[ ( $database_migrations == *"/"  ) ]]; then
     rm -R ".blueprint/tmp/$n"
     PRINT FATAL "Directory paths in conf.yml should not end with a slash."
     exit 1
@@ -670,7 +667,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
               -e "s~{!!!!webroot~{webroot~g" \
               -e "s~{!!!!is_~{is~g" \
               "$file"
-           
+
 
           elif [ -d "$file" ]; then
             PLACE_PLACEHOLDERS "$file"
@@ -678,7 +675,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
         done
       }
       PLACE_PLACEHOLDERS "$DIR"
-      
+
     fi
   fi
 
@@ -688,7 +685,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   if [[ $version == "" ]]; then rm -R ".blueprint/tmp/$n";              PRINT FATAL "'info_version' is a required configuration option.";exit 1;fi
   if [[ $target == "" ]]; then rm -R ".blueprint/tmp/$n";               PRINT FATAL "'info_target' is a required configuration option.";exit 1;fi
   if [[ $admin_view == "" ]]; then rm -R ".blueprint/tmp/$n";           PRINT FATAL "'admin_view' is a required configuration option.";exit 1;fi
-  
+
   if [[ $icon == "" ]]; then                                            PRINT WARNING "This extension does not come with an icon, consider adding one.";fi
   if [[ $target != "$VERSION" ]]; then                                  PRINT WARNING "This extension is built for version $target, but your version is $VERSION.";fi
   if [[ $identifier != "$n" ]]; then rm -R ".blueprint/tmp/$n";         PRINT FATAL "Extension file name must be the same as your identifier. (example: identifier.blueprint)";exit 1;fi
@@ -746,23 +743,23 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   # Place database migrations.
   if [[ $database_migrations != "" ]]; then
     PRINT INFO "Cloning database migration files.."
-    cp -R ".blueprint/tmp/$n/$database_migrations/"* "database/migrations/" 2>> $BLUEPRINT__DEBUG
+    cp -R ".blueprint/tmp/$n/$database_migrations/"* "database/migrations/" 2>> "$BLUEPRINT__DEBUG"
   fi
 
   # Place views directory.
   if [[ $requests_views != "" ]]; then
     PRINT INFO "Cloning and linking views directory.."
     mkdir -p ".blueprint/extensions/$identifier/views"
-    cp -R ".blueprint/tmp/$n/$requests_views/"* ".blueprint/extensions/$identifier/views/" 2>> $BLUEPRINT__DEBUG
-    ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/views "$FOLDER/resources/views/blueprint/extensions/$identifier" 2>> $BLUEPRINT__DEBUG
+    cp -R ".blueprint/tmp/$n/$requests_views/"* ".blueprint/extensions/$identifier/views/" 2>> "$BLUEPRINT__DEBUG"
+    ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/views" "$FOLDER/resources/views/blueprint/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
   fi
 
   # Place controllers directory.
   if [[ $requests_controllers != "" ]]; then
     PRINT INFO "Cloning and linking controllers directory.."
     mkdir -p ".blueprint/extensions/$identifier/controllers"
-    cp -R ".blueprint/tmp/$n/$requests_controllers/"* ".blueprint/extensions/$identifier/controllers/" 2>> $BLUEPRINT__DEBUG
-    ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/controllers "$FOLDER/app/BlueprintFramework/Extensions/$identifier" 2>> $BLUEPRINT__DEBUG
+    cp -R ".blueprint/tmp/$n/$requests_controllers/"* ".blueprint/extensions/$identifier/controllers/" 2>> "$BLUEPRINT__DEBUG"
+    ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/controllers" "$FOLDER/app/BlueprintFramework/Extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
   fi
 
   # Place routes directory.
@@ -773,11 +770,11 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     mkdir -p ".blueprint/extensions/$identifier/routers"
 
     if [[ $requests_routers_application != "" ]]; then
-      { 
+      {
         rm "$FOLDER/routes/blueprint/application/$identifier.php"
         cp -R ".blueprint/tmp/$n/$requests_routers_application" ".blueprint/extensions/$identifier/routers/application.php"
         ln -s -r -T ".blueprint/extensions/$identifier/routers/application.php" "$FOLDER/routes/blueprint/application/$identifier.php"
-      } 2>> $BLUEPRINT__DEBUG
+      } 2>> "$BLUEPRINT__DEBUG"
     fi
 
     if [[ $requests_routers_client != "" ]]; then
@@ -785,7 +782,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
         rm "$FOLDER/routes/blueprint/client/$identifier.php"
         cp -R ".blueprint/tmp/$n/$requests_routers_client" ".blueprint/extensions/$identifier/routers/client.php"
         ln -s -r -T ".blueprint/extensions/$identifier/routers/client.php" "$FOLDER/routes/blueprint/client/$identifier.php"
-      } 2>> $BLUEPRINT__DEBUG
+      } 2>> "$BLUEPRINT__DEBUG"
     fi
 
     if [[ $requests_routers_web != "" ]]; then
@@ -793,16 +790,16 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
         rm "$FOLDER/routes/blueprint/web/$identifier.php"
         cp -R ".blueprint/tmp/$n/$requests_routers_web" ".blueprint/extensions/$identifier/routers/web.php"
         ln -s -r -T ".blueprint/extensions/$identifier/routers/web.php" "$FOLDER/routes/blueprint/web/$identifier.php"
-      } 2>> $BLUEPRINT__DEBUG
+      } 2>> "$BLUEPRINT__DEBUG"
     fi
   fi
 
-  # Place and link artisan directory.
-  if [[ $console_artisan != "" ]]; then
+  # Place and link console directory and generate artisan files.
+  if [[ $data_console != "" ]]; then
     PRINT INFO "Cloning and linking artisan directory.."
-    mkdir -p ".blueprint/extensions/$identifier/console/artisan"
-    cp -R ".blueprint/tmp/$n/$console_artisan/"* ".blueprint/extensions/$identifier/console/artisan/" 2>> $BLUEPRINT__DEBUG
-    ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/console/artisan "$FOLDER/app/Console/Commands/BlueprintFramework/Extensions/$identifier" 2>> $BLUEPRINT__DEBUG
+    mkdir -p ".blueprint/extensions/$identifier/console"
+    cp -R ".blueprint/tmp/$n/$data_console/"* ".blueprint/extensions/$identifier/console/" 2>> "$BLUEPRINT__DEBUG"
+    #ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/console/artisan" "$FOLDER/app/Console/Commands/BlueprintFramework/Extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
   fi
 
   # Create, link and connect components directory.
@@ -810,7 +807,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     YARN="y"
     PRINT INFO "Cloning and linking components directory.."
     mkdir -p ".blueprint/extensions/$identifier/components"
-    ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/components "$FOLDER/resources/scripts/blueprint/extensions/$identifier" 2>> $BLUEPRINT__DEBUG
+    ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/components" "$FOLDER/resources/scripts/blueprint/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
 
     # Remove custom routes to prevent duplicates.
     if [[ $DUPLICATE == "y" ]]; then
@@ -830,7 +827,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
         "resources/scripts/blueprint/extends/routers/routes.ts"
     fi
 
-    cp -R ".blueprint/tmp/$n/$dashboard_components/"* ".blueprint/extensions/$identifier/components/" 2>> $BLUEPRINT__DEBUG
+    cp -R ".blueprint/tmp/$n/$dashboard_components/"* ".blueprint/extensions/$identifier/components/" 2>> "$BLUEPRINT__DEBUG"
     if [[ -f ".blueprint/tmp/$n/$dashboard_components/Components.yml" ]]; then
 
       # fetch component config
@@ -842,15 +839,15 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
       s="import ${identifier^}Component from '"; e="';"
 
       PLACE_REACT() {
-        if [[ 
-          ( $1 == "/"* ) || 
-          ( $1 == *"/.."* ) || 
-          ( $1 == *"../"* ) || 
-          ( $1 == *"/../"* ) || 
-          ( $1 == *"\n"* ) || 
-          ( $1 == *"@"* ) || 
+        if [[
+          ( $1 == "/"* ) ||
+          ( $1 == *"/.."* ) ||
+          ( $1 == *"../"* ) ||
+          ( $1 == *"/../"* ) ||
+          ( $1 == *"\n"* ) ||
+          ( $1 == *"@"* ) ||
           ( $1 == *"\\"* )
-        ]]; then 
+        ]]; then
           rm -R ".blueprint/tmp/$n"
           PRINT FATAL "Component file paths cannot escape the components folder."
           exit 1
@@ -867,7 +864,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           if [[ ${1} == *".tsx" ]] ||
              [[ ${1} == *".ts"  ]] ||
              [[ ${1} == *".jsx" ]] ||
-             [[ ${1} == *".js"  ]]; then 
+             [[ ${1} == *".js"  ]]; then
             rm -R ".blueprint/tmp/$n"
             PRINT FATAL "Component paths may not end with a file extension."
             exit 1
@@ -877,7 +874,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           if [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.tsx" ]] &&
              [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.ts"  ]] &&
              [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.jsx" ]] &&
-             [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.js"  ]]; then 
+             [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.js"  ]]; then
             rm -R ".blueprint/tmp/$n"
             PRINT FATAL "Components configuration points towards one or more files that do not exist."
             exit 1
@@ -932,7 +929,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
       PLACE_REACT "$Components_Server_Files_Browse_AfterContent" "Server/Files/Browse/AfterContent.tsx" "$OldComponents_Server_Files_Browse_AfterContent"
       PLACE_REACT "$Components_Server_Files_Edit_BeforeEdit" "Server/Files/Edit/BeforeEdit.tsx" "$OldComponents_Server_Files_Edit_BeforeEdit"
       PLACE_REACT "$Components_Server_Files_Edit_AfterEdit" "Server/Files/Edit/AfterEdit.tsx" "$OldComponents_Server_Files_Edit_AfterEdit"
-      
+
       PLACE_REACT "$Components_Server_Databases_BeforeContent" "Server/Databases/BeforeContent.tsx" "$OldComponents_Server_Databases_BeforeContent"
       PLACE_REACT "$Components_Server_Databases_AfterContent" "Server/Databases/AfterContent.tsx" "$OldComponents_Server_Databases_AfterContent"
 
@@ -976,12 +973,12 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
         ImportConstructor="$__BuildDir/extensions/routes/importConstructor.bak"
         AccountRouteConstructor="$__BuildDir/extensions/routes/accountRouteConstructor.bak"
         ServerRouteConstructor="$__BuildDir/extensions/routes/serverRouteConstructor.bak"
-        
+
         {
           cp "$__BuildDir/extensions/routes/importConstructor" "$ImportConstructor"
           cp "$__BuildDir/extensions/routes/accountRouteConstructor" "$AccountRouteConstructor"
           cp "$__BuildDir/extensions/routes/serverRouteConstructor" "$ServerRouteConstructor"
-        } 2>> $BLUEPRINT__DEBUG
+        } 2>> "$BLUEPRINT__DEBUG"
 
         sed -i "s~\[id\^]~""${identifier^}""~g" $ImportConstructor
         sed -i "s~\[id\^]~""${identifier^}""~g" $AccountRouteConstructor
@@ -1008,7 +1005,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           COMPONENTS_ROUTE_IDEN=$(tr -dc '[:lower:]' < /dev/urandom | fold -w 10 | head -n 1)
           COMPONENTS_ROUTE_IDEN="${identifier^}${COMPONENTS_ROUTE_IDEN^}"
 
-          echo -e "NAME: $COMPONENTS_ROUTE_NAME\nPATH: $COMPONENTS_ROUTE_PATH\nTYPE: $COMPONENTS_ROUTE_TYPE\nCOMP: $COMPONENTS_ROUTE_COMP\nIDEN: $COMPONENTS_ROUTE_IDEN" >> $BLUEPRINT__DEBUG
+          echo -e "NAME: $COMPONENTS_ROUTE_NAME\nPATH: $COMPONENTS_ROUTE_PATH\nTYPE: $COMPONENTS_ROUTE_TYPE\nCOMP: $COMPONENTS_ROUTE_COMP\nIDEN: $COMPONENTS_ROUTE_IDEN" >> "$BLUEPRINT__DEBUG"
 
 
           # Return error if type is not defined correctly.
@@ -1019,15 +1016,15 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           fi
 
           # Prevent escaping components folder.
-          if [[ 
-            ( ${COMPONENTS_ROUTE_COMP} == "/"* ) || 
-            ( ${COMPONENTS_ROUTE_COMP} == *"/.."* ) || 
-            ( ${COMPONENTS_ROUTE_COMP} == *"../"* ) || 
-            ( ${COMPONENTS_ROUTE_COMP} == *"/../"* ) || 
-            ( ${COMPONENTS_ROUTE_COMP} == *"\n"* ) || 
-            ( ${COMPONENTS_ROUTE_COMP} == *"@"* ) || 
+          if [[
+            ( ${COMPONENTS_ROUTE_COMP} == "/"* ) ||
+            ( ${COMPONENTS_ROUTE_COMP} == *"/.."* ) ||
+            ( ${COMPONENTS_ROUTE_COMP} == *"../"* ) ||
+            ( ${COMPONENTS_ROUTE_COMP} == *"/../"* ) ||
+            ( ${COMPONENTS_ROUTE_COMP} == *"\n"* ) ||
+            ( ${COMPONENTS_ROUTE_COMP} == *"@"* ) ||
             ( ${COMPONENTS_ROUTE_COMP} == *"\\"* )
-          ]]; then 
+          ]]; then
             rm -R ".blueprint/tmp/$n"
             PRINT FATAL "Navigation route component paths may not escape the components directory."
             exit 1
@@ -1037,7 +1034,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           if [[ ${COMPONENTS_ROUTE_COMP} == *".tsx" ]] \
           || [[ ${COMPONENTS_ROUTE_COMP} == *".ts"  ]] \
           || [[ ${COMPONENTS_ROUTE_COMP} == *".jsx" ]] \
-          || [[ ${COMPONENTS_ROUTE_COMP} == *".js"  ]]; then 
+          || [[ ${COMPONENTS_ROUTE_COMP} == *".js"  ]]; then
             rm -R ".blueprint/tmp/$n"
             PRINT FATAL "Navigation route component paths may not end with a file extension."
             exit 1
@@ -1047,7 +1044,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           if [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.tsx" ]] \
           && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.ts"  ]] \
           && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.jsx" ]] \
-          && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.js"  ]]; then 
+          && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.js"  ]]; then
             rm -R ".blueprint/tmp/$n"
             PRINT FATAL "Navigation route configuration points towards one or more components that do not exist."
             exit 1
@@ -1077,7 +1074,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
           if [[ $COMPONENTS_ROUTE_TYPE == "account" ]]; then
             # Account routes
             if [[ $COMPONENTS_ROUTE_PERM != "" ]]; then PRINT WARNING "Route permission declarations have no effect on account navigation routes."; fi
-          
+
             COMPONENTS_IMPORT="import $COMPONENTS_ROUTE_IDEN from '@/blueprint/extensions/$identifier/$COMPONENTS_ROUTE_COMP';"
             COMPONENTS_ROUTE="{ path: '$COMPONENTS_ROUTE_PATH', name: '$COMPONENTS_ROUTE_NAME', component: $COMPONENTS_ROUTE_IDEN, adminOnly: $COMPONENTS_ROUTE_ADMI, identifier: '$identifier' },"
 
@@ -1090,7 +1087,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
 
             sed -i "s~/\* \[import] \*/~/* [import] */""$COMPONENTS_IMPORT""~g" $ImportConstructor
             sed -i "s~/\* \[routes] \*/~/* [routes] */""$COMPONENTS_ROUTE""~g" $ServerRouteConstructor
-          fi 
+          fi
 
           # Clear variables after doing all route stuff for a defined route.
           COMPONENTS_ROUTE=""
@@ -1117,12 +1114,12 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
 
         # Fix line breaks by removing all of them.
         sed -i -E "s~~~g" "resources/scripts/blueprint/extends/routers/routes.ts"
-        
+
         {
           rm "$ImportConstructor"
           rm "$AccountRouteConstructor"
           rm "$ServerRouteConstructor"
-        } 2>> $BLUEPRINT__DEBUG
+        } 2>> "$BLUEPRINT__DEBUG"
       fi
     else
       # warn about missing components.yml file
@@ -1134,14 +1131,14 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   if [[ $data_public != "" ]]; then
     PRINT INFO "Cloning and linking public directory.."
     mkdir -p ".blueprint/extensions/$identifier/public"
-    ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/public "$FOLDER/public/extensions/$identifier" 2>> $BLUEPRINT__DEBUG
+    ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/public" "$FOLDER/public/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
 
-    cp -R ".blueprint/tmp/$n/$data_public/"* ".blueprint/extensions/$identifier/public/" 2>> $BLUEPRINT__DEBUG
+    cp -R ".blueprint/tmp/$n/$data_public/"* ".blueprint/extensions/$identifier/public/" 2>> "$BLUEPRINT__DEBUG"
   fi
 
   if [[ $admin_controller == "" ]]; then
     controller_type="default"
-  else 
+  else
     controller_type="custom"
   fi
 
@@ -1157,7 +1154,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     cp "$__BuildDir/extensions/route.php" "$AdminRouteConstructor"
     cp "$__BuildDir/extensions/button.blade.php" "$AdminButtonConstructor"
     cp "$__BuildDir/extensions/config/ExtensionFS.build" "$ConfigExtensionFS"
-  } 2>> $BLUEPRINT__DEBUG;
+  } 2>> "$BLUEPRINT__DEBUG"
 
 
   # Start creating data directory.
@@ -1165,7 +1162,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   mkdir -p \
     ".blueprint/extensions/$identifier/private" \
     ".blueprint/extensions/$identifier/private/.store"
-  
+
   if [[ $data_directory != "" ]]; then cp -R ".blueprint/tmp/$n/$data_directory/"* ".blueprint/extensions/$identifier/private/"; fi
 
   cp ".blueprint/tmp/$n/conf.yml" ".blueprint/extensions/$identifier/private/.store/conf.yml" #backup conf.yml
@@ -1181,8 +1178,8 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     # Create assets folder if the extension is not updating.
     mkdir .blueprint/extensions/"$identifier"/assets
   fi
-  ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/assets "$FOLDER/public/assets/extensions/$identifier" 2>> $BLUEPRINT__DEBUG
-  
+  ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/assets" "$FOLDER/public/assets/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
+
   ICON_EXT="jpg"
   if [[ $icon == "" ]]; then
     # use random placeholder icon if extension does not
@@ -1323,8 +1320,8 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
   # Create extension filesystem (ExtensionFS)
   PRINT INFO "Creating and linking extension filesystem.."
   mkdir -p ".blueprint/extensions/$identifier/fs"
-  ln -s -r -T $FOLDER/.blueprint/extensions/"$identifier"/fs "$FOLDER/storage/extensions/$identifier" 2>> $BLUEPRINT__DEBUG
-  ln -s -r -T $FOLDER/storage/extensions/"$identifier" "$FOLDER/public/fs/$identifier" 2>> $BLUEPRINT__DEBUG
+  ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/fs" "$FOLDER/storage/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
+  ln -s -r -T "$FOLDER/storage/extensions/$identifier" "$FOLDER/public/fs/$identifier" 2>> "$BLUEPRINT__DEBUG"
   if [[ $DUPLICATE == "y" ]]; then
     sed -i \
       -e "s/\/\* ${identifier^}Start \*\/.*\/\* ${identifier^}End \*\///" \
@@ -1358,7 +1355,7 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
       PRINT INPUT "Would you like to migrate your database? (Y/n)"
       read -r YN
     fi
-    if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then 
+    if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
       PRINT INFO "Running database migrations.."
       php artisan migrate --force
     else
@@ -1366,16 +1363,16 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     fi
   fi
 
-  if [[ $YARN == "y" ]]; then 
+  if [[ $YARN == "y" ]]; then
     if ! [[ ( $F_developerIgnoreRebuild == true ) && ( $dev == true ) ]]; then
       PRINT INFO "Rebuilding panel assets.."
       yarn run build:production --progress
     fi
   fi
-  
+
   # Link filesystems
   PRINT INFO "Linking filesystems.."
-  php artisan storage:link &>> $BLUEPRINT__DEBUG
+  php artisan storage:link &>> "$BLUEPRINT__DEBUG"
 
   # Flush cache.
   PRINT INFO "Flushing view, config and route cache.."
@@ -1384,21 +1381,21 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     php artisan config:cache
     php artisan route:clear
     if ! $dev || ! $F_developerKeepApplicationCache; then php artisan cache:clear; fi
-  } &>> $BLUEPRINT__DEBUG 
+  } &>> "$BLUEPRINT__DEBUG"
 
   # Make sure all files have correct permissions.
   PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
   find "$FOLDER/" \
    -path "$FOLDER/node_modules" -prune \
-   -o -exec chown "$OWNERSHIP" {} + &>> $BLUEPRINT__DEBUG
+   -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
 
   chown -R $OWNERSHIP "$FOLDER/.blueprint/extensions/$identifier/private"
-  chmod --silent -R +x ".blueprint/extensions/"* 2>> $BLUEPRINT__DEBUG
+  chmod --silent -R +x ".blueprint/extensions/"* 2>> "$BLUEPRINT__DEBUG"
 
   if [[ ( $F_developerIgnoreInstallScript == false ) || ( $dev != true ) ]]; then
     if $F_hasInstallScript; then
       PRINT WARNING "Extension uses a custom installation script, proceed with caution."
-      chmod --silent +x ".blueprint/extensions/$identifier/private/install.sh" 2>> $BLUEPRINT__DEBUG
+      chmod --silent +x ".blueprint/extensions/$identifier/private/install.sh" 2>> "$BLUEPRINT__DEBUG"
 
       # Run script while also parsing some useful variables for the install script to use.
       su "$WEBUSER" -s "$USERSHELL" -c "
@@ -1426,10 +1423,10 @@ if [[ ( $2 == "-i" ) || ( $2 == "-install" ) || ( $2 == "-add" ) ]]; then VCMD="
     else
       PRINT SUCCESS "$identifier has been installed."
     fi
-    sendTelemetry "FINISH_EXTENSION_INSTALLATION" >> $BLUEPRINT__DEBUG
+    sendTelemetry "FINISH_EXTENSION_INSTALLATION" >> "$BLUEPRINT__DEBUG"
   elif [[ $dev == true ]]; then
     PRINT SUCCESS "$identifier has been built."
-    sendTelemetry "BUILD_DEVELOPMENT_EXTENSION" >> $BLUEPRINT__DEBUG
+    sendTelemetry "BUILD_DEVELOPMENT_EXTENSION" >> "$BLUEPRINT__DEBUG"
   fi
 
   exit 0 # success
@@ -1438,16 +1435,17 @@ fi
 # -r, -remove
 if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
   if [[ $(( $# - 2 )) != 1 ]]; then PRINT FATAL "Expected 1 argument but got $(( $# - 2 )).";exit 2;fi
-  
+
   # Check if the extension is installed.
+  if [[ $FILE == *".blueprint" ]]; then FILE="${FILE::-10}"; fi
+  set -- "${@:1:2}" "$FILE" "${@:4}"
+
   if [[ $(cat ".blueprint/extensions/blueprint/private/db/installed_extensions") != *"$3,"* ]]; then
     PRINT FATAL "'$3' is not installed or detected."
     exit 2
   fi
 
-  if [[ ( $FILE == *".blueprint" ) ]]; then PRINT FATAL "Argument one must not end with '.blueprint'.";exit 2; fi
-
-  if [[ -f ".blueprint/extensions/$3/private/.store/conf.yml" ]]; then 
+  if [[ -f ".blueprint/extensions/$3/private/.store/conf.yml" ]]; then
     eval "$(parse_yaml ".blueprint/extensions/$3/private/.store/conf.yml" conf_)"
     # Add aliases for config values to make working with them easier.
     name="${conf_info_name//&/\\&}"
@@ -1471,6 +1469,7 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
 
     data_directory="$conf_data_directory"; #(optional)
     data_public="$conf_data_public"; #(optional)
+    data_console="$conf_data_console"; #(optional)
 
     requests_views="$conf_requests_views"; #(optional)
     requests_controllers="$conf_requests_controllers"; #(optional)
@@ -1480,16 +1479,14 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
     requests_routers_web="$conf_requests_routers_web"; #(optional)
 
     database_migrations="$conf_database_migrations"; #(optional)
-
-    console_artisan="$conf_console_artisan"; #(optional)
-  else 
+  else
     PRINT FATAL "Extension configuration file not found or detected."
     exit 1
   fi
 
   PRINT INPUT "Do you want to proceed with this transaction? Some files might not be removed properly. (y/N)"
   read -r YN
-  if [[ ( ( ${YN} != "y"* ) && ( ${YN} != "Y"* ) ) || ( ( ${YN} == "" ) ) ]]; then  PRINT INFO "Extension removal cancelled.";exit 1;fi
+  if [[ ( ( ${YN} != "y"* ) && ( ${YN} != "Y"* ) ) || ( ( ${YN} == "" ) ) ]]; then PRINT INFO "Extension removal cancelled.";exit 1;fi
 
   PRINT INFO "Searching and validating framework dependencies.."
   depend
@@ -1512,11 +1509,11 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
         BLUEPRINT_VERSION=\"$VERSION\"       \
         bash .blueprint/extensions/$identifier/private/remove.sh
       "
-    
+
     echo -e "\e[0m\x1b[0m\033[0m"
   fi
 
-  # Remove admin button 
+  # Remove admin button
   PRINT INFO "Editing 'extensions' admin page.."
   sed -n -i "/<!--@$identifier:s@-->/{p; :a; N; /<!--@$identifier:e@-->/!ba; s/.*\n//}; p" "resources/views/admin/extensions.blade.php"
   sed -i \
@@ -1531,7 +1528,7 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
     -e "s~// $identifier:start~~g" \
     -e "s~// $identifier:stop~~g" \
     "routes/blueprint.php"
-  
+
   # Remove admin view and controller
   PRINT INFO "Removing admin view and controller.."
   rm -r \
@@ -1546,13 +1543,13 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
   fi
 
   # Remove admin wrapper
-  if [[ $admin_wrapper != "" ]]; then 
+  if [[ $admin_wrapper != "" ]]; then
     PRINT INFO "Removing and unlinking admin wrapper.."
     rm "resources/views/blueprint/admin/wrappers/$identifier.blade.php";
   fi
 
   # Remove dashboard wrapper
-  if [[ $dashboard_wrapper != "" ]]; then 
+  if [[ $dashboard_wrapper != "" ]]; then
     PRINT INFO "Removing and unlinking dashboard wrapper.."
     rm "resources/views/blueprint/dashboard/wrappers/$identifier.blade.php";
   fi
@@ -1623,7 +1620,7 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
     REMOVE_REACT "$Components_Server_Files_Browse_AfterContent" "Server/Files/Browse/AfterContent.tsx"
     REMOVE_REACT "$Components_Server_Files_Edit_BeforeEdit" "Server/Files/Edit/BeforeEdit.tsx"
     REMOVE_REACT "$Components_Server_Files_Edit_AfterEdit" "Server/Files/Edit/AfterEdit.tsx"
-    
+
     REMOVE_REACT "$Components_Server_Databases_BeforeContent" "Server/Databases/BeforeContent.tsx"
     REMOVE_REACT "$Components_Server_Databases_AfterContent" "Server/Databases/AfterContent.tsx"
 
@@ -1680,7 +1677,7 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
     -e "s~/\* ${identifier^}ServerRouteEnd \*~~g" \
     \
     "resources/scripts/blueprint/extends/routers/routes.ts"
-  
+
   # Remove views folder
   if [[ $requests_views != "" ]]; then
     PRINT INFO "Removing and unlinking views folder.."
@@ -1708,11 +1705,11 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
       "routes/blueprint/application/$identifier.php" \
       "routes/blueprint/client/$identifier.php" \
       "routes/blueprint/web/$identifier.php" \
-      &>> $BLUEPRINT__DEBUG
+      &>> "$BLUEPRINT__DEBUG"
   fi
 
   # Remove console folder
-  if [[ $console_artisan != "" ]]; then # further expand on this if needed
+  if [[ $data_console != "" ]]; then # further expand on this if needed
     PRINT INFO "Removing and unlinking console folder.."
     rm -R \
       ".blueprint/extensions/$identifier/console" \
@@ -1725,19 +1722,19 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
   rm -R ".blueprint/extensions/$identifier/private"
 
   # Remove public folder
-  if [[ $data_public != "" ]]; then 
+  if [[ $data_public != "" ]]; then
     PRINT INFO "Removing and unlinking public folder.."
     rm -R \
       ".blueprint/extensions/$identifier/public" \
       "public/extensions/$identifier"
-  fi  
+  fi
 
   # Remove assets folder
   PRINT INFO "Removing and unlinking assets folder.."
   rm -R \
     ".blueprint/extensions/$identifier/assets" \
     "public/assets/extensions/$identifier"
-  
+
   # Remove extension filesystem (ExtensionFS)
   PRINT INFO "Removing and unlinking extension filesystem.."
   rm -r \
@@ -1756,12 +1753,12 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
   # Rebuild panel
   if [[ $YARN == "y" ]]; then
     PRINT INFO "Rebuilding panel assets.."
-    yarn run build:production --progress 
+    yarn run build:production --progress
   fi
-  
+
   # Link filesystems
   PRINT INFO "Linking filesystems.."
-  php artisan storage:link &>> $BLUEPRINT__DEBUG
+  php artisan storage:link &>> "$BLUEPRINT__DEBUG"
 
   # Flush cache.
   PRINT INFO "Flushing view, config and route cache.."
@@ -1770,20 +1767,20 @@ if [[ ( $2 == "-r" ) || ( $2 == "-remove" ) ]]; then VCMD="y"
     php artisan config:cache
     php artisan route:clear
     php artisan cache:clear
-  } &>> $BLUEPRINT__DEBUG 
+  } &>> "$BLUEPRINT__DEBUG"
 
   # Make sure all files have correct permissions.
   PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
   find "$FOLDER/" \
    -path "$FOLDER/node_modules" -prune \
-   -o -exec chown "$OWNERSHIP" {} + &>> $BLUEPRINT__DEBUG
-  
+   -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
+
   # Remove from installed list
   PRINT INFO "Removing '$identifier' from active extensions list.."
   sed -i "s~$identifier,~~g" ".blueprint/extensions/blueprint/private/db/installed_extensions"
 
   PRINT SUCCESS "'$identifier' has been removed."
-  sendTelemetry "FINISH_EXTENSION_REMOVAL" >> $BLUEPRINT__DEBUG
+  sendTelemetry "FINISH_EXTENSION_REMOVAL" >> "$BLUEPRINT__DEBUG"
 
   exit 0 # success
 fi
@@ -1819,17 +1816,17 @@ if [[ ( $2 == "-init" || $2 == "-I" ) ]]; then VCMD="y"
 
   ask_template() {
     PRINT INPUT "Choose an extension template:"
-    echo -e "$(curl 'https://raw.githubusercontent.com/BlueprintFramework/templates/main/repository' 2>> $BLUEPRINT__DEBUG)"
+    echo -e "$(curl 'https://raw.githubusercontent.com/BlueprintFramework/templates/main/repository' 2>> "$BLUEPRINT__DEBUG")"
     read -r ASKTEMPLATE
     REDO_TEMPLATE=false
 
     # Template should not be empty
-    if [[ ${ASKTEMPLATE} == "" ]]; then 
+    if [[ ${ASKTEMPLATE} == "" ]]; then
       PRINT WARNING "Template should not be empty."
       REDO_TEMPLATE=true
     fi
     # Unknown template.
-    if [[ $(echo -e "$(curl "https://raw.githubusercontent.com/BlueprintFramework/templates/main/${ASKTEMPLATE}/TemplateConfiguration.yml" 2>> $BLUEPRINT__DEBUG)") == "404: Not Found" ]]; then 
+    if [[ $(echo -e "$(curl "https://raw.githubusercontent.com/BlueprintFramework/templates/main/${ASKTEMPLATE}/TemplateConfiguration.yml" 2>> "$BLUEPRINT__DEBUG")") == "404: Not Found" ]]; then
       PRINT WARNING "Unknown template, please choose a valid option."
       REDO_TEMPLATE=true
     fi
@@ -1845,7 +1842,7 @@ if [[ ( $2 == "-init" || $2 == "-I" ) ]]; then VCMD="y"
     REDO_NAME=false
 
     # Name should not be empty
-    if [[ ${ASKNAME} == "" ]]; then 
+    if [[ ${ASKNAME} == "" ]]; then
       ASKNAME="$INPUT_DEFAULT"
     fi
 
@@ -1883,7 +1880,7 @@ if [[ ( $2 == "-init" || $2 == "-I" ) ]]; then VCMD="y"
     if [[ ${ASKDESCRIPTION} == "" ]]; then
       ASKDESCRIPTION="$INPUT_DEFAULT"
     fi
-    
+
     # Ask again if response does not pass validation.
     if [[ ${REDO_DESCRIPTION} == true ]]; then ASKDESCRIPTION=""; ask_description; fi
   }
@@ -1913,7 +1910,7 @@ if [[ ( $2 == "-init" || $2 == "-I" ) ]]; then VCMD="y"
     if [[ ${ASKAUTHOR} == "" ]]; then
       ASKAUTHOR="$INPUT_DEFAULT"
     fi
-    
+
     # Ask again if response does not pass validation.
     if [[ ${REDO_AUTHOR} == true ]]; then ASKAUTHOR=""; ask_author; fi
   }
@@ -1930,10 +1927,10 @@ if [[ ( $2 == "-init" || $2 == "-I" ) ]]; then VCMD="y"
   if [[ $(php artisan bp:latest) != "$VERSION" ]]; then PRINT WARNING "Active Blueprint version is not latest, you might run into compatibility issues."; fi
   cd .blueprint/tmp || cdhalt
   git clone "https://github.com/BlueprintFramework/templates.git"
-  cd ${FOLDER}/.blueprint || cdhalt
+  cd "${FOLDER}"/.blueprint || cdhalt
   cp -R tmp/templates/* extensions/blueprint/private/build/templates/
   rm -R tmp/templates
-  cd ${FOLDER} || cdhalt
+  cd "${FOLDER}" || cdhalt
 
   eval "$(parse_yaml $__BuildDir/templates/"${tnum}"/TemplateConfiguration.yml t_)"
 
@@ -1967,7 +1964,7 @@ if [[ ( $2 == "-init" || $2 == "-I" ) ]]; then VCMD="y"
   mkdir -p .blueprint/tmp
 
   PRINT SUCCESS "Extension files initialized and imported to '.blueprint/dev'."
-  sendTelemetry "INITIALIZE_DEVELOPMENT_EXTENSION" >> $BLUEPRINT__DEBUG
+  sendTelemetry "INITIALIZE_DEVELOPMENT_EXTENSION" >> "$BLUEPRINT__DEBUG"
 fi
 
 
@@ -1998,7 +1995,7 @@ if [[ ( $2 == "-export" || $2 == "-e" ) ]]; then VCMD="y"
   PRINT INFO "Start packaging extension.."
 
   cd .blueprint || cdhalt
-  rm dev/.gitkeep 2>> $BLUEPRINT__DEBUG
+  rm dev/.gitkeep 2>> "$BLUEPRINT__DEBUG"
 
   eval "$(parse_yaml dev/conf.yml conf_)"; identifier="${conf_info_identifier}"
 
@@ -2038,23 +2035,23 @@ if [[ ( $2 == "-export" || $2 == "-e" ) ]]; then VCMD="y"
   fi
 
   zip -r extension.zip ./*
-  cd ${FOLDER} || cdhalt
+  cd "${FOLDER}" || cdhalt
   cp .blueprint/tmp/extension.zip "${identifier}.blueprint"
   rm -R .blueprint/tmp
   mkdir -p .blueprint/tmp
 
-  if [[ $3 == "expose"* ]]; then 
+  if [[ $3 == "expose"* ]]; then
     PRINT INFO "Generating download url.. (expires after 2 minutes)"
     randstr=${RANDOM}${RANDOM}${RANDOM}${RANDOM}${RANDOM}
     mkdir .blueprint/extensions/blueprint/assets/exports/${randstr}
     cp "${identifier}".blueprint .blueprint/extensions/blueprint/assets/exports/${randstr}/"${identifier}".blueprint
 
     PRINT SUCCESS "Extension has been exported to '$(grabAppUrl)/assets/extensions/blueprint/exports/${randstr}/${identifier}.blueprint' and '${FOLDER}/${identifier}.blueprint'."
-    eval "$(sleep 120 && rm -R .blueprint/extensions/blueprint/assets/exports/${randstr} 2>> $BLUEPRINT__DEBUG)" &
+    eval "$(sleep 120 && rm -R .blueprint/extensions/blueprint/assets/exports/${randstr} 2>> "$BLUEPRINT__DEBUG")" &
   else
     PRINT SUCCESS "Extension has been exported to '${FOLDER}/${identifier}.blueprint'."
   fi
-  sendTelemetry "EXPORT_DEVELOPMENT_EXTENSION" >> $BLUEPRINT__DEBUG
+  sendTelemetry "EXPORT_DEVELOPMENT_EXTENSION" >> "$BLUEPRINT__DEBUG"
 fi
 
 
@@ -2076,7 +2073,7 @@ if [[ ( $2 == "-wipe" || $2 == "-w" ) ]]; then VCMD="y"
   rm -R \
     .blueprint/dev/* \
     .blueprint/dev/.* \
-    2>> $BLUEPRINT__DEBUG
+    2>> "$BLUEPRINT__DEBUG"
 
   PRINT SUCCESS "Development folder has been cleared."
 fi
@@ -2085,7 +2082,7 @@ fi
 # -info
 if [[ ( $2 == "-info" || $2 == "-f" ) ]]; then VCMD="y"
   fetchversion()    { printf "\x1b[0m\x1b[37m"; if [[ $VERSION != "" ]]; then echo $VERSION; else echo "none"; fi }
-  fetchfolder()     { printf "\x1b[0m\x1b[37m"; if [[ $FOLDER != "" ]]; then echo $FOLDER; else echo "none"; fi }
+  fetchfolder()     { printf "\x1b[0m\x1b[37m"; if [[ $FOLDER != "" ]]; then echo "$FOLDER"; else echo "none"; fi }
   fetchurl()        { printf "\x1b[0m\x1b[37m"; if [[ $(grabAppUrl) != "" ]]; then grabAppUrl; else echo "none"; fi }
   fetchlocale()     { printf "\x1b[0m\x1b[37m"; if [[ $(grabAppLocale) != "" ]]; then grabAppLocale; else echo "none"; fi }
   fetchtimezone()   { printf "\x1b[0m\x1b[37m"; if [[ $(grabAppTimezone) != "" ]]; then grabAppTimezone; else echo "none"; fi }
@@ -2114,7 +2111,7 @@ fi
 if [[ $2 == "-rerun-install" ]]; then VCMD="y"
   PRINT WARNING "This is an advanced feature, only proceed if you know what you are doing."
   dbRemove "blueprint.setupFinished"
-  cd ${FOLDER} || cdhalt
+  cd "${FOLDER}" || cdhalt
   bash blueprint.sh
 fi
 
@@ -2142,24 +2139,24 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
   read -r YN
   if [[ ${YN} != "continue" ]]; then PRINT INFO "Upgrade cancelled.";exit 1;fi
   YN=""
-  
+
 
   if [[ $3 == "remote" ]]; then PRINT INFO "Fetching and pulling latest commit.."
   else                          PRINT INFO "Fetching and pulling latest release.."; fi
 
-  mkdir $FOLDER/.tmp
+  mkdir "$FOLDER/.tmp"
   cp blueprint.sh .blueprint.sh.bak
 
   HAS_DEV=false
   if [[ -n $(find .blueprint/dev -maxdepth 1 -type f -not -name ".gitkeep" -print -quit) ]]; then
     PRINT INFO "Backing up extension development files.."
-    mkdir -p $FOLDER/.tmp/dev
-    cp .blueprint/dev/* $FOLDER/.tmp/dev/ -Rf
+    mkdir -p "$FOLDER/.tmp/dev"
+    cp .blueprint/dev/* "$FOLDER/.tmp/dev/" -Rf
     HAS_DEV=true
   fi
 
-  mkdir -p $FOLDER/.tmp/files
-  cd $FOLDER/.tmp/files || cdhalt
+  mkdir -p "$FOLDER/.tmp/files"
+  cd "$FOLDER/.tmp/files" || cdhalt
   if [[ $3 == "remote" ]]; then
     if [[ $4 == "" ]]; then REMOTE_REPOSITORY="$REPOSITORY"
     else REMOTE_REPOSITORY="$4"; fi
@@ -2180,9 +2177,9 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
   fi
 
   if [[ ! -d "main" ]]; then
-    cd $FOLDER || cdhalt
-    rm -r $FOLDER/.tmp &>> $BLUEPRINT__DEBUG
-    rm $FOLDER/.blueprint.sh.bak &>> $BLUEPRINT__DEBUG
+    cd "$FOLDER" || cdhalt
+    rm -r "$FOLDER/.tmp" &>> "$BLUEPRINT__DEBUG"
+    rm "$FOLDER/.blueprint.sh.bak" &>> "$BLUEPRINT__DEBUG"
     PRINT FATAL "Remote does not exist or encountered an error, try again later."
     exit 1
   fi
@@ -2193,7 +2190,7 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
     "main/.git" \
     "main/.gitignore" \
     "main/README.md" \
-    &>> $BLUEPRINT__DEBUG
+    &>> "$BLUEPRINT__DEBUG"
 
   # Copy fetched release files to the Pterodactyl directory and remove temp files.
   cp -r main/* "$FOLDER"/
@@ -2201,7 +2198,7 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
     "main" \
     "$FOLDER"/.blueprint \
     "$FOLDER"/.tmp/files
-  cd $FOLDER || cdhalt
+  cd "$FOLDER" || cdhalt
 
   # Clean up folders with potentially broken symlinks.
   rm \
@@ -2214,21 +2211,20 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
 
   chmod +x blueprint.sh
   sed -i -E \
-    -e "s|FOLDER=\"/var/www/pterodactyl\" #;|FOLDER=\"$FOLDER\" #;|g" \
     -e "s|OWNERSHIP=\"www-data:www-data\" #;|OWNERSHIP=\"$OWNERSHIP\" #;|g" \
     -e "s|WEBUSER=\"www-data\" #;|WEBUSER=\"$WEBUSER\" #;|g" \
     -e "s|USERSHELL=\"/bin/bash\" #;|USERSHELL=\"$USERSHELL\" #;|g" \
-    $FOLDER/blueprint.sh
-  mv $FOLDER/blueprint $FOLDER/.blueprint;
+    "$FOLDER/blueprint.sh"
+  mv "$FOLDER/blueprint" "$FOLDER/.blueprint"
   bash blueprint.sh --post-upgrade
 
   # Ask user if they'd like to migrate their database.
   PRINT INPUT "Would you like to migrate your database? (Y/n)"
   read -r YN
-  if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then 
+  if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
     PRINT INFO "Running database migrations.."
     php artisan migrate --force
-    php artisan up &>> $BLUEPRINT__DEBUG
+    php artisan up &>> "$BLUEPRINT__DEBUG"
   else
     PRINT INFO "Database migrations have been skipped."
   fi
@@ -2237,11 +2233,11 @@ if [[ $2 == "-upgrade" ]]; then VCMD="y"
   if [[ ${HAS_DEV} == true ]]; then
     PRINT INFO "Restoring extension development files.."
     mkdir -p .blueprint/dev
-    cp $FOLDER/.tmp/dev/* .blueprint/dev -r
-    rm $FOLDER/.tmp/dev -rf
+    cp "$FOLDER/.tmp/dev/"* .blueprint/dev -r
+    rm "$FOLDER/.tmp/dev" -rf
   fi
 
-  rm -r $FOLDER/.tmp
+  rm -r "$FOLDER/.tmp"
 
   # Post-upgrade checks.
   PRINT INFO "Validating update.."

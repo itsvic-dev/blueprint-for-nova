@@ -5,6 +5,7 @@ namespace Pterodactyl\Http\Controllers\Admin;
 use Illuminate\View\View;
 use Illuminate\View\Factory as ViewFactory;
 use Pterodactyl\Http\Controllers\Controller;
+use Pterodactyl\Services\Helpers\NovaVersionService;
 use Pterodactyl\Services\Helpers\SoftwareVersionService;
 use Pterodactyl\BlueprintFramework\Services\PlaceholderService\BlueprintPlaceholderService;
 use Pterodactyl\BlueprintFramework\Libraries\ExtensionLibrary\Admin\BlueprintAdminLibrary as BlueprintExtensionLibrary;
@@ -18,7 +19,8 @@ class ExtensionsController extends Controller
     private SoftwareVersionService $version,
     private ViewFactory $view,
     private BlueprintExtensionLibrary $ExtensionLibrary,
-    private BlueprintPlaceholderService $PlaceholderService)
+    private BlueprintPlaceholderService $PlaceholderService,
+    private NovaVersionService $NovaVersionService)
   {
   }
 
@@ -30,6 +32,7 @@ class ExtensionsController extends Controller
     return $this->view->make('admin.extensions', [
       'ExtensionLibrary' => $this->ExtensionLibrary,
       'PlaceholderService' => $this->PlaceholderService,
+      'NovaVersionService' => $this->NovaVersionService,
       
       'version' => $this->version,
       'root' => "/admin/extensions",

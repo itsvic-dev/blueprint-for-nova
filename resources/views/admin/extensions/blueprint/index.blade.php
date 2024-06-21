@@ -10,10 +10,10 @@
   <img src="/assets/extensions/blueprint/logo.jpg" alt="logo" style="float:left;width:30px;height:30px;border-radius:3px;margin-right:5px;">
   
   <!-- Website button -->
-  <a href="https://getnova.zip" target="_blank"><button class="btn btn-gray-alt pull-right" style="padding: 5px 10px;"><i class="bx bx-link-external"></i></button></a>
+  <a href="https://blueprint.zip" target="_blank"><button class="btn btn-gray-alt pull-right" style="padding: 5px 10px;"><i class="bx bx-link-external"></i></button></a>
   
   <!-- GitHub button -->
-  <a href="https://github.com/itsvic-dev/blueprint-for-nova" class="pull-right" target="_blank">
+  <a href="https://github.com/BlueprintFramework/framework" class="pull-right" target="_blank">
     <button class="btn btn-gray-alt" style="padding: 5px 10px; margin-right: 7px;"><i class="bx bx-git-branch"></i></button>
     @if($ExtensionLibrary->dbGet("blueprint", "git-hint") != "0")
       <div class="blueprint:push-repo">
@@ -26,7 +26,7 @@
   </a>
 
   <!-- Page title -->
-  <h1 ext-title>Blueprint for Nova<tag mg-left @if($LatestVersion != $PlaceholderService->version()) red @else blue @endif>{{ $PlaceholderService->version() }}</tag></h1>
+  <h1 ext-title>Blueprint<tag mg-left @if($LatestVersion != $PlaceholderService->version()) red @else blue @endif>{{ $PlaceholderService->version() }}</tag></h1>
 
 @endsection
 

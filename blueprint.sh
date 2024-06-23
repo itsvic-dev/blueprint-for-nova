@@ -1,5 +1,6 @@
 #!/bin/bash
 # © 2023-2024 Ivy (prpl.wtf)
+# Blueprint for Nova © 2024 it's vic!
 
 # Learn more @ blueprint.zip
 # Source code available on github.com/blueprintframework/framework
@@ -19,7 +20,7 @@
   VERSION="beta-F248-1"
 
 # Default GitHub repository to use when upgrading Blueprint.
-  REPOSITORY="BlueprintFramework/framework"
+  REPOSITORY="itsvic-dev/blueprint-for-nova"
 
 
 

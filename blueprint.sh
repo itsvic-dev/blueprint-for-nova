@@ -17,7 +17,7 @@
   USERSHELL="/bin/bash" #;
 
 # Defines the version Blueprint will display as the active one.
-  VERSION="beta-F248-1"
+  VERSION="beta-2024-07"
 
 # Default GitHub repository to use when upgrading Blueprint.
   REPOSITORY="itsvic-dev/blueprint-for-nova"
@@ -256,7 +256,6 @@ if [[ $1 != "-bash" ]]; then
     } 2>> "$BLUEPRINT__DEBUG"
     php artisan storage:link &>> "$BLUEPRINT__DEBUG"
 
-    PRINT INFO "Replacing internal placeholders.."
     # Copy "Blueprint" extension page logo from assets.
     cp "$FOLDER/.blueprint/assets/logo.jpg" "$FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg"
 

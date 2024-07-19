@@ -1038,7 +1038,7 @@ InstallExtension() {
     # use random placeholder icon if extension does not
     # come with an icon.
     icnNUM=$(( 1 + RANDOM % 5 ))
-    cp ".blueprint/assets/defaultExtensionLogo$icnNUM.jpg" ".blueprint/extensions/$identifier/assets/icon.$ICON_EXT"
+    cp ".blueprint/assets/Extensions/Defaults/$icnNUM.jpg" ".blueprint/extensions/$identifier/assets/icon.$ICON_EXT"
   else
     if [[ $icon == *".svg" ]]; then ICON_EXT='svg'; fi
     if [[ $icon == *".png" ]]; then ICON_EXT='png'; fi
@@ -1094,7 +1094,7 @@ InstallExtension() {
       -e "s~\[webicon\]~$websiteiconclass~g" \
       "$AdminBladeConstructor"
   fi
-  echo -e "$(<.blueprint/tmp/"$n"/"$admin_view")\n@endsection" >> "$AdminBladeConstructor"
+  echo -e "$(<".blueprint/tmp/$n/$admin_view")\n@endsection" >> "$AdminBladeConstructor"
 
   # Construct admin route
   sed -i "s~\[id\]~$identifier~g" "$AdminRouteConstructor"
@@ -1132,7 +1132,7 @@ InstallExtension() {
     echo "$ADMINCONTROLLER_RESULT" > "app/Http/Controllers/Admin/Extensions/$identifier/$ADMINCONTROLLER_NAME"
   else
     # Use default extension controller.
-    cp .blueprint/tmp/"$n"/"$admin_controller" "app/Http/Controllers/Admin/Extensions/$identifier/$ADMINCONTROLLER_NAME"
+    cp ".blueprint/tmp/$n/$admin_controller" "app/Http/Controllers/Admin/Extensions/$identifier/$ADMINCONTROLLER_NAME"
   fi
 
   if [[ $DUPLICATE != "y" ]]; then

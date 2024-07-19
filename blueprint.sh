@@ -85,39 +85,18 @@ __BuildDir=".blueprint/extensions/blueprint/private/build"
 cd "$FOLDER" || return
 
 # Import libraries.
-source scripts/libraries/parse_yaml.sh || missinglibs+="[parse_yaml]"
-source scripts/libraries/grabenv.sh    || missinglibs+="[grabenv]"
-source scripts/libraries/logFormat.sh  || missinglibs+="[logFormat]"
-source scripts/libraries/misc.sh       || missinglibs+="[misc]"
+source scripts/libraries/parse_yaml.sh    || missinglibs+="[parse_yaml]"
+source scripts/libraries/grabenv.sh       || missinglibs+="[grabenv]"
+source scripts/libraries/logFormat.sh     || missinglibs+="[logFormat]"
+source scripts/libraries/misc.sh          || missinglibs+="[misc]"
+source scripts/libraries/configutility.sh || missinglibs+="[configutility]"
 
 
 # -config
 # usage: "cITEM=VALUE bash blueprint.sh -config"
-if [[ "$1" == "-config" ]]; then
-
-  # cTELEMETRY_ID
-  # Update the telemetry id.
-  if [[ "$cTELEMETRY_ID" != "" ]]; then
-    echo "$cTELEMETRY_ID" > .blueprint/extensions/blueprint/private/db/telemetry_id
-  fi
-
-  # cDEVELOPER
-  # Enable/Disable developer mode.
-  if [[ "$cDEVELOPER" != "" ]]; then
-    if [[ "$cDEVELOPER" == "true" ]]; then
-      dbAdd "blueprint.developerEnabled"
-    else
-      dbRemove "blueprint.developerEnabled"
-    fi
-  fi
-
-  echo .
-  exit 0
-fi
+if [[ "$1" == "-config" ]]; then ConfigUtility; fi
 
 cdhalt() { PRINT FATAL "Attempted navigation into nonexistent directory, halting process."; exit 1; }
-
-
 depend() {
   # Check for compatible node versions
   nodeVer=$(node -v)
@@ -177,10 +156,11 @@ depend() {
     if ! [ "$(ls "node_modules/"*"webpack"* 2> /dev/null)"   ]; then PRINT FATAL "Required dependency \"webpack\" is not installed or detected.";   fi
     if ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"     ]; then PRINT FATAL "Required dependency \"react\" is not installed or detected.";     fi
 
-    if [[ $missinglibs == *"[parse_yaml]"* ]]; then PRINT FATAL "Required internal dependency \"internal:parse_yaml\" is not installed or detected."; fi
-    if [[ $missinglibs == *"[grabEnv]"*    ]]; then PRINT FATAL "Required internal dependency \"internal:grabEnv\" is not installed or detected.";    fi
-    if [[ $missinglibs == *"[logFormat]"*  ]]; then PRINT FATAL "Required internal dependency \"internal:logFormat\" is not installed or detected.";  fi
-    if [[ $missinglibs == *"[misc]"*       ]]; then PRINT FATAL "Required internal dependency \"internal:misc\" is not installed or detected.";       fi
+    if [[ $missinglibs == *"[parse_yaml]"*    ]]; then PRINT FATAL "Required internal dependency \"internal:parse_yaml\" is not installed or detected."; fi
+    if [[ $missinglibs == *"[grabEnv]"*       ]]; then PRINT FATAL "Required internal dependency \"internal:grabEnv\" is not installed or detected.";    fi
+    if [[ $missinglibs == *"[logFormat]"*     ]]; then PRINT FATAL "Required internal dependency \"internal:logFormat\" is not installed or detected.";  fi
+    if [[ $missinglibs == *"[misc]"*          ]]; then PRINT FATAL "Required internal dependency \"internal:misc\" is not installed or detected.";       fi
+    if [[ $missinglibs == *"[configutility]"* ]]; then PRINT FATAL "Required internal dependency \"internal:configutility\" is not installed or detected.";       fi
 
     exit 1
   fi
@@ -210,7 +190,6 @@ assignflags() {
   if [[ ( $flags == *"developerEscalateExportScript,"* ) || ( $flags == *"developerEscalateExportScript" ) ]]; then F_developerEscalateExportScript=true ;fi
 }
 
-
 # Adds the "blueprint" command to the /usr/local/bin directory and configures the correct permissions for it.
 placeshortcut() {
   PRINT INFO "Placing Blueprint command shortcut.."
@@ -237,15 +216,21 @@ if [[ $1 != "-bash" ]]; then
     # Only run if Blueprint is not in the process of upgrading.
     if [[ $1 != "--post-upgrade" ]]; then
       # Print Blueprint icon with ascii characters.
-      echo -e "  ██\n██  ██\n  ████\n";
+      C0="\x1b[0m"
+      C1="\x1b[31;43;1m"
+      C2="\x1b[32;44;1m"
+      C3="\x1b[34;45;1m"
+      C3="\x1b[0;37;1m"
+      echo -e "$C0" \
+        "\n$C4  ██$C1▌$C2▌$C3▌$C0   Blueprint Framework" \
+        "\n$C4██  ██$C1▌$C2▌$C3▌$C0 https://blueprint.zip" \
+        "\n$C4  ████$C1▌$C2▌$C3▌$C0 © 2023-2024 Ivy (prpl.wtf)\n";
     fi
 
     PRINT INFO "Searching and validating framework dependencies.."
-    # Check if required dependencies are installed
-    depend
-
-    # Place Blueprint shortcut
-    placeshortcut
+    depend # Check if required dependencies are installed
+    
+    placeshortcut # Place Blueprint shortcut
 
     # Link directories.
     PRINT INFO "Linking directories and filesystems.."
@@ -257,7 +242,7 @@ if [[ $1 != "-bash" ]]; then
     php artisan storage:link &>> "$BLUEPRINT__DEBUG"
 
     # Copy "Blueprint" extension page logo from assets.
-    cp "$FOLDER/.blueprint/assets/logo.jpg" "$FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg"
+    cp "$FOLDER/.blueprint/assets/Emblem/emblem.jpg" "$FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg"
 
     # Put application into maintenance.
     PRINT INPUT "Would you like to put your application into maintenance while Blueprint is installing? (Y/n)"
@@ -322,16 +307,17 @@ if [[ $1 != "-bash" ]]; then
 
     dbAdd "blueprint.setupFinished"
     # Let the panel know the user has finished installation.
-    sed -i "s/NOTINSTALLED/INSTALLED/g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
+    sed -i "s~NOTINSTALLED~INSTALLED~g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
     exit 0
   fi
 fi
 
 Command() {
-  PRINT FATAL "'$1' is not a valid command or argument. Use argument '-help' for a list of commands."
+  PRINT FATAL "'$cmd' is not a valid command or argument. Use argument '-help' for a list of commands."
 }
 
-case "${2}" in
+cmd="${2}"
+case "$cmd" in
   -add|-install|-i) source ./scripts/commands/extensions/install.sh ;;
   -remove|-r) source ./scripts/commands/extensions/remove.sh ;;
   -init|-I) source ./scripts/commands/developer/init.sh ;;
@@ -340,7 +326,7 @@ case "${2}" in
   -export|-e) source ./scripts/commands/developer/export.sh ;;
   -info|-f) source ./scripts/commands/misc/info.sh ;;
   -debug) source ./scripts/commands/misc/debug.sh ;;
-  -help|-h|help) source ./scripts/commands/misc/help.sh ;;
+  -help|-h|help|'') source ./scripts/commands/misc/help.sh ;;
   -version|-v) source ./scripts/commands/misc/version.sh ;;
   -rerun-install) source ./scripts/commands/advanced/rerun-install.sh ;;
   -upgrade) source ./scripts/commands/advanced/upgrade.sh ;;

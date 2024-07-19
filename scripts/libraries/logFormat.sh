@@ -4,21 +4,22 @@
 # and uses the same license as the rest of the codebase.
 
 PRINT() {
-  DATE=$(date +"%H:%M:%S")
-  DATEDEBUG=$(date +"%Y-%m-%d %H:%M:%S")
-  TYPE="$1"
-  MESSAGE="$2"
+  local DATE=""; DATE="$(date +"%H:%M:%S")"
+  local DATEDEBUG=""; DATEDEBUG="$(date +"%Y-%m-%d %H:%M:%S")"
+  local TYPE="$1"
+  local MESSAGE="$2"
 
-  BOLD=$(tput bold)
-  RESET=$(tput sgr0)
-  SECONDARY="\033[2m"
+  local BOLD=""; BOLD="$(tput bold)"
+  local RESET=""; RESET="$(tput sgr0)"
+  local SECONDARY="\033[2m"
+  local PRIMARY=""
 
-  if [[ $TYPE == "INFO"    ]]; then ICON="󰋼"; READABLETYPE="Info"; PRIMARY=$(tput setaf 4); fi
-  if [[ $TYPE == "WARNING" ]]; then ICON=""; READABLETYPE="Warning"; PRIMARY=$(tput setaf 3); fi
-  if [[ $TYPE == "FATAL"   ]]; then ICON="󰅙"; READABLETYPE="Fatal"; PRIMARY=$(tput setaf 1); fi
-  if [[ $TYPE == "SUCCESS" ]]; then ICON="󰗠"; READABLETYPE="Success"; PRIMARY=$(tput setaf 2); fi
-  if [[ $TYPE == "INPUT"   ]]; then ICON="󰋗"; READABLETYPE="Input"; PRIMARY=$(tput setaf 5); fi
-  if [[ $TYPE == "DEBUG"   ]]; then PRIMARY="$SECONDARY"; fi
+  if [[ $TYPE == "INFO"    ]]; then local ICON="󰋼"; local READABLETYPE="Info"; PRIMARY=$(tput setaf 4); fi
+  if [[ $TYPE == "WARNING" ]]; then local ICON=""; local READABLETYPE="Warning"; PRIMARY=$(tput setaf 3); fi
+  if [[ $TYPE == "FATAL"   ]]; then local ICON="󰅙"; local READABLETYPE="Fatal"; PRIMARY=$(tput setaf 1); fi
+  if [[ $TYPE == "SUCCESS" ]]; then local ICON="󰗠"; local READABLETYPE="Success"; PRIMARY=$(tput setaf 2); fi
+  if [[ $TYPE == "INPUT"   ]]; then local ICON="󰋗"; local READABLETYPE="Input"; PRIMARY=$(tput setaf 5); fi
+  if [[ $TYPE == "DEBUG"   ]]; then local PRIMARY="$SECONDARY"; fi
 
   if [[ $TYPE != "DEBUG" ]]; then echo -e "${SECONDARY}${DATE}${RESET} ${PRIMARY}${TYPE}:${RESET} $MESSAGE${RESET}"; fi
   echo -e "${BOLD}${SECONDARY}$DATEDEBUG${RESET} ${PRIMARY}${TYPE}:${RESET} $MESSAGE" >> "$FOLDER"/.blueprint/extensions/blueprint/private/debug/logs.txt

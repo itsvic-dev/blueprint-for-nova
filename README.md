@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="blueprint/assets/blueprintXnova.png">
+    <img src="blueprint/assets/Miscellaneous/blueprintXnova.png">
 </p>
 <h1 align="center">Blueprint for Nova</h1>
 

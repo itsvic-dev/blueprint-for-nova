@@ -5,16 +5,18 @@
 @endsection
 
 @section('content-header')
-  <h1>
+  <a href="https://blueprint.zip/browse" target="_blank">
+    <button class="btn btn-gray-alt pull-right" style="padding: 5px 10px">
+      Find more extensions
+    </button>
+  </a>
+
+  <h1 style="margin-top:5px">
     Extensions
     <small>
       Manage and configure all of your installed extensions.
     </small>
   </h1>
-  <ol class="breadcrumb">
-    <li><a href="{{ route('admin.index') }}">Admin</a></li>
-    <li class="active">Extensions</li>
-  </ol>
 @endsection
 
 @section('content')
@@ -83,11 +85,15 @@
     ?>
 
     /* style content */
-    .content {
-      padding-right: 0px !important;
+    a:has(button.btn.extension-btn) { 
+      height: 96px;
+      display: inline-block;
+      width: 100%;
     }
-    div.wrapper > div.content-wrapper {
-      min-height: calc(100vh + 15px) !important;
+    section.content {
+      padding-right: 0px !important;
+      display: inline-block !important;
+      width: 100% !important;
     }
   </style>
 @endsection

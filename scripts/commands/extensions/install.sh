@@ -410,6 +410,7 @@ InstallExtension() {
   if [[ $database_migrations != "" ]]; then
     PRINT INFO "Cloning database migration files.."
     cp -R ".blueprint/tmp/$n/$database_migrations/"* "database/migrations/" 2>> "$BLUEPRINT__DEBUG"
+    dbmigrations="true"
   fi
 
   # Place views directory.
@@ -747,6 +748,8 @@ InstallExtension() {
       PLACE_REACT "$Components_Navigation_SubNavigation_AfterSubNavigation" "Navigation/SubNavigation/AfterSubNavigation.tsx" "$OldComponents_Navigation_SubNavigation_AfterSubNavigation"
 
       # dashboard
+      PLACE_REACT "$Components_Dashboard_BeforeContent" "Dashboard/BeforeContent.tsx" "$OldComponents_Dashboard_BeforeContent"
+      PLACE_REACT "$Components_Dashboard_AfterContent" "Dashboard/AfterContent.tsx" "$OldComponents_Dashboard_AfterContent"
       PLACE_REACT "$Components_Dashboard_ServerRow_BeforeEntryName" "Dashboard/ServerRow/BeforeEntryName.tsx" "$OldComponents_Dashboard_ServerRow_BeforeEntryName"
       PLACE_REACT "$Components_Dashboard_ServerRow_AfterEntryName" "Dashboard/ServerRow/AfterEntryName.tsx" "$OldComponents_Dashboard_ServerRow_AfterEntryName"
       PLACE_REACT "$Components_Dashboard_ServerRow_BeforeEntryDescription" "Dashboard/ServerRow/BeforeEntryDescription.tsx" "$OldComponents_Dashboard_ServerRow_BeforeEntryDescription"
@@ -1009,13 +1012,11 @@ InstallExtension() {
 
   #backup conf.yml
   cp ".blueprint/tmp/$n/conf.yml" ".blueprint/extensions/$identifier/private/.store/conf.yml"
-
   #backup Components.yml
   if [[ -f ".blueprint/tmp/$n/$dashboard_components/Components.yml" ]] \
   && [[ $dashboard_components != "" ]]; then
     cp ".blueprint/tmp/$n/$dashboard_components/Components.yml" ".blueprint/extensions/$identifier/private/.store/Components.yml"
   fi
-
   #backup Console.yml
   if [[ -f ".blueprint/tmp/$n/$data_console/Console.yml" ]] \
   && [[ $data_console != "" ]]; then
@@ -1051,7 +1052,6 @@ InstallExtension() {
 
   if [[ $admin_css != "" ]]; then
     PRINT INFO "Cloning and linking admin css.."
-    updateCacheReminder
     sed -i "s~@import url(/assets/extensions/$identifier/admin.style.css);~~g" ".blueprint/extensions/blueprint/assets/admin.extensions.css"
     echo -e "@import url(/assets/extensions/$identifier/admin.style.css);" >> ".blueprint/extensions/blueprint/assets/admin.extensions.css"
     cp ".blueprint/tmp/$n/$admin_css" ".blueprint/extensions/$identifier/assets/admin.style.css"
@@ -1138,8 +1138,7 @@ InstallExtension() {
   if [[ $DUPLICATE != "y" ]]; then
     # Place admin route if extension is not updating.
     PRINT INFO "Editing admin routes.."
-    { echo "
-    // $identifier:start";
+    { echo "// $identifier:start";
     echo "$ADMINROUTE_RESULT";
     echo // "$identifier":stop; } >> "routes/blueprint.php"
   else
@@ -1223,16 +1222,26 @@ InstallExtension() {
       chmod --silent +x ".blueprint/extensions/$identifier/private/install.sh" 2>> "$BLUEPRINT__DEBUG"
 
       # Run script while also parsing some useful variables for the install script to use.
-      su "$WEBUSER" -s "$USERSHELL" -c "
-        cd \"$FOLDER\";
-        EXTENSION_IDENTIFIER=\"$identifier\" \
-        EXTENSION_TARGET=\"$target\"         \
-        EXTENSION_VERSION=\"$version\"       \
-        PTERODACTYL_DIRECTORY=\"$FOLDER\"    \
-        BLUEPRINT_VERSION=\"$VERSION\"       \
-        BLUEPRINT_DEVELOPER=\"$dev\"         \
-        bash .blueprint/extensions/$identifier/private/install.sh
-      "
+      if $F_developerEscalateInstallScript; then
+        EXTENSION_IDENTIFIER="$identifier" \
+        EXTENSION_TARGET="$target"         \
+        EXTENSION_VERSION="$version"       \
+        PTERODACTYL_DIRECTORY="$FOLDER"    \
+        BLUEPRINT_VERSION="$VERSION"       \
+        BLUEPRINT_DEVELOPER="$dev"         \
+        bash .blueprint/extensions/"$identifier"/private/install.sh
+      else
+        su "$WEBUSER" -s "$USERSHELL" -c "
+          cd \"$FOLDER\";
+          EXTENSION_IDENTIFIER=\"$identifier\" \
+          EXTENSION_TARGET=\"$target\"         \
+          EXTENSION_VERSION=\"$version\"       \
+          PTERODACTYL_DIRECTORY=\"$FOLDER\"    \
+          BLUEPRINT_VERSION=\"$VERSION\"       \
+          BLUEPRINT_DEVELOPER=\"$dev\"         \
+          bash .blueprint/extensions/$identifier/private/install.sh
+        "
+      fi
       echo -e "\e[0m\x1b[0m\033[0m"
     fi
   fi
@@ -1290,6 +1299,7 @@ Command() {
       php artisan config:cache
       php artisan route:clear
       if [[ $KeepApplicationCache != "true" ]]; then php artisan cache:clear; fi
+      php artisan bp:cache
     } &>> "$BLUEPRINT__DEBUG"
 
     # Make sure all files have correct permissions.
@@ -1299,8 +1309,15 @@ Command() {
     -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
 
     # Database migrations
-    if [[ ( $database_migrations != "" ) && ( $DOCKER != "y" ) ]] || [[ $DeveloperForcedMigrate == "true" ]]; then
-      if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]] || [[ $DeveloperForcedMigrate == "true" ]]; then
+    if [[ ( $dbmigrations == "true" ) && ( $DOCKER != "y" ) ]] \
+    || [[ ( $DeveloperForcedMigrate == "true" ) && ( $dev == true ) ]]; then
+
+      if [[ ( $DeveloperForcedMigrate != "true" ) || ( $dev != true ) ]]; then
+        PRINT INPUT "Would you like to migrate your database? (Y/n)"
+        read -r YN
+      fi
+
+      if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]] || [[ ( $DeveloperForcedMigrate == "true" ) && ( $dev == true ) ]]; then
         PRINT INFO "Running database migrations.."
         php artisan migrate --force
       else

@@ -3,10 +3,9 @@
 # Blueprint for Nova © 2024 it's vic!
 
 # Learn more @ blueprint.zip
-# Source code available on github.com/blueprintframework/framework
+# Source code available at github.com/blueprintframework/framework
 
-# This should allow Blueprint to run in Docker. Please note that changing the $FOLDER variable after running
-# the Blueprint installation script will not change anything in any files besides blueprint.sh.
+# Variable for telling Blueprint which folder Pterodactyl lives in.
   FOLDER=$(realpath "$(dirname "$0")")
 
 # This stores the webserver ownership user which Blueprint uses when applying webserver permissions.
@@ -17,12 +16,18 @@
   USERSHELL="/bin/bash" #;
 
 # Defines the version Blueprint will display as the active one.
-  VERSION="beta-2024-07"
+  VERSION="beta-2024-08"
 
 # Default GitHub repository to use when upgrading Blueprint.
   REPOSITORY="itsvic-dev/blueprint-for-nova"
 
 
+
+# Set environment variables.
+export BLUEPRINT__FOLDER=$FOLDER
+export BLUEPRINT__VERSION=$VERSION
+export BLUEPRINT__DEBUG="$FOLDER"/.blueprint/extensions/blueprint/private/debug/logs.txt
+export NODE_OPTIONS=--openssl-legacy-provider
 
 # Check if the script is being sourced - and if so - load bash autocompletion.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
@@ -33,10 +38,9 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     cmd="${COMP_WORDS[1]}"
 
     case "${cmd}" in
-      -install|-add|-i) opts="$(find "$FOLDER"/*.blueprint | sed -e "s|^$FOLDER/||g" -e "s|.blueprint$||g")" ;;
-      -remove|-r) opts="$(sed "s|,||g" "$FOLDER/.blueprint/extensions/blueprint/private/db/installed_extensions")" ;;
+      -install|-add|-i) opts="$(find "$BLUEPRINT__SOURCEFOLDER"/*.blueprint | sed -e "s|^$BLUEPRINT__SOURCEFOLDER/||g" -e "s|.blueprint$||g")" ;;
+      -remove|-r) opts="$(sed "s|,||g" "$BLUEPRINT__SOURCEFOLDER/.blueprint/extensions/blueprint/private/db/installed_extensions")" ;;
       -export) opts="expose" ;;
-      -debug) opts="100 200" ;;
       -upgrade) opts="remote" ;;
       
       *) opts="-install -add -remove -init -build -export -wipe -version -help -info -debug -upgrade -rerun-install" ;;
@@ -73,12 +77,7 @@ if [[ $VERSION != "" ]]; then
   fi
 fi
 
-# Write environment variables.
-export BLUEPRINT__FOLDER=$FOLDER
-export BLUEPRINT__VERSION=$VERSION
-export BLUEPRINT__DEBUG="$FOLDER"/.blueprint/extensions/blueprint/private/debug/logs.txt
-export NODE_OPTIONS=--openssl-legacy-provider
-# Write internal variables.
+# Set internal variables.
 __BuildDir=".blueprint/extensions/blueprint/private/build"
 
 # Automatically navigate to the Pterodactyl directory when running the script.
@@ -177,17 +176,19 @@ assignflags() {
   F_developerIgnoreRebuild=false
   F_developerForceMigrate=false
   F_developerKeepApplicationCache=false
+  F_developerEscalateInstallScript=false
   F_developerEscalateExportScript=false
-  if [[ ( $flags == *"ignorePlaceholders,"*            ) || ( $flags == *"ignorePlaceholders"            ) ]]; then F_ignorePlaceholders=true            ;fi
-  if [[ ( $flags == *"forceLegacyPlaceholders,"*       ) || ( $flags == *"forceLegacyPlaceholders"       ) ]]; then F_forceLegacyPlaceholders=true       ;fi
-  if [[ ( $flags == *"hasInstallScript,"*              ) || ( $flags == *"hasInstallScript"              ) ]]; then F_hasInstallScript=true              ;fi
-  if [[ ( $flags == *"hasRemovalScript,"*              ) || ( $flags == *"hasRemovalScript"              ) ]]; then F_hasRemovalScript=true              ;fi
-  if [[ ( $flags == *"hasExportScript,"*               ) || ( $flags == *"hasExportScript"               ) ]]; then F_hasExportScript=true               ;fi
-  if [[ ( $flags == *"developerIgnoreInstallScript,"*  ) || ( $flags == *"developerIgnoreInstallScript"  ) ]]; then F_developerIgnoreInstallScript=true  ;fi
-  if [[ ( $flags == *"developerIgnoreRebuild,"*        ) || ( $flags == *"developerIgnoreRebuild"        ) ]]; then F_developerIgnoreRebuild=true        ;fi
-  if [[ ( $flags == *"developerForceMigrate,"*         ) || ( $flags == *"developerForceMigrate"         ) ]]; then F_developerForceMigrate=true         ;fi
-  if [[ ( $flags == *"developerKeepApplicationCache,"* ) || ( $flags == *"developerKeepApplicationCache" ) ]]; then F_developerKeepApplicationCache=true ;fi
-  if [[ ( $flags == *"developerEscalateExportScript,"* ) || ( $flags == *"developerEscalateExportScript" ) ]]; then F_developerEscalateExportScript=true ;fi
+  if [[ ( $flags == *"ignorePlaceholders,"*             ) || ( $flags == *"ignorePlaceholders"             ) ]]; then F_ignorePlaceholders=true             ;fi
+  if [[ ( $flags == *"forceLegacyPlaceholders,"*        ) || ( $flags == *"forceLegacyPlaceholders"        ) ]]; then F_forceLegacyPlaceholders=true        ;fi
+  if [[ ( $flags == *"hasInstallScript,"*               ) || ( $flags == *"hasInstallScript"               ) ]]; then F_hasInstallScript=true               ;fi
+  if [[ ( $flags == *"hasRemovalScript,"*               ) || ( $flags == *"hasRemovalScript"               ) ]]; then F_hasRemovalScript=true               ;fi
+  if [[ ( $flags == *"hasExportScript,"*                ) || ( $flags == *"hasExportScript"                ) ]]; then F_hasExportScript=true                ;fi
+  if [[ ( $flags == *"developerIgnoreInstallScript,"*   ) || ( $flags == *"developerIgnoreInstallScript"   ) ]]; then F_developerIgnoreInstallScript=true   ;fi
+  if [[ ( $flags == *"developerIgnoreRebuild,"*         ) || ( $flags == *"developerIgnoreRebuild"         ) ]]; then F_developerIgnoreRebuild=true         ;fi
+  if [[ ( $flags == *"developerForceMigrate,"*          ) || ( $flags == *"developerForceMigrate"          ) ]]; then F_developerForceMigrate=true          ;fi
+  if [[ ( $flags == *"developerKeepApplicationCache,"*  ) || ( $flags == *"developerKeepApplicationCache"  ) ]]; then F_developerKeepApplicationCache=true  ;fi
+  if [[ ( $flags == *"developerEscalateInstallScript,"* ) || ( $flags == *"developerEscalateInstallScript" ) ]]; then F_developerEscalateInstallScript=true ;fi
+  if [[ ( $flags == *"developerEscalateExportScript,"*  ) || ( $flags == *"developerEscalateExportScript"  ) ]]; then F_developerEscalateExportScript=true  ;fi
 }
 
 # Adds the "blueprint" command to the /usr/local/bin directory and configures the correct permissions for it.
@@ -201,7 +202,7 @@ placeshortcut() {
   } >> "$BLUEPRINT__DEBUG"
   echo -e \
     "#!/bin/bash \n" \
-    "if [[ \"\${BASH_SOURCE[0]}\" != \"\${0}\" ]]; then source \"$FOLDER/blueprint.sh\"; return 0; fi; "\
+    "if [[ \"\${BASH_SOURCE[0]}\" != \"\${0}\" ]]; then export BLUEPRINT__SOURCEFOLDER=\"$FOLDER\"; source \"$FOLDER/blueprint.sh\"; return 0; fi; "\
     "bash $FOLDER/blueprint.sh -bash \$@;" \
     > /usr/local/bin/blueprint
 }
@@ -263,8 +264,8 @@ if [[ $1 != "-bash" ]]; then
       php artisan config:cache
       php artisan route:clear
       php artisan cache:clear
+      php artisan bp:cache
     } &>> "$BLUEPRINT__DEBUG"
-    updateCacheReminder
 
     # Run migrations if Blueprint is not upgrading.
     if [[ ( $1 != "--post-upgrade" ) && ( $DOCKER != "y" ) ]]; then

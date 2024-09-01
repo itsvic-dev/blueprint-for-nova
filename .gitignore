@@ -35,10 +35,8 @@ resources/lang/locales.js
 result
 docker-compose.yaml
 
-
-
 # BlueprintFramework
-# Ignore Blueprint internal folder and extensions
+# Ignore Blueprint internal folder and installed extensions
 .blueprint/
 *.blueprint
 !scripts/commands/misc

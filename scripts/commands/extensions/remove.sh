@@ -96,8 +96,8 @@ RemoveExtension() {
   PRINT INFO "Removing admin routes.."
   sed -n -i "/\/\/ $identifier:start/{p; :a; N; /\/\/ $identifier:stop/!ba; s/.*\n//}; p" "routes/blueprint.php"
   sed -i \
-    -e "s~// $identifier:start~~g" \
-    -e "s~// $identifier:stop~~g" \
+    -e "/\/\/ $identifier:start/d" \
+    -e "/\/\/ $identifier:stop/d" \
     "routes/blueprint.php"
 
   # Remove admin view and controller
@@ -109,7 +109,6 @@ RemoveExtension() {
   # Remove admin css
   if [[ $admin_css != "" ]]; then
     PRINT INFO "Removing and unlinking admin css.."
-    updateCacheReminder
     sed -i "s~@import url(/assets/extensions/$identifier/admin.style.css);~~g" ".blueprint/extensions/blueprint/assets/admin.extensions.css"
   fi
 
@@ -167,6 +166,8 @@ RemoveExtension() {
     REMOVE_REACT "$Components_Navigation_SubNavigation_AfterSubNavigation" "Navigation/SubNavigation/AfterSubNavigation.tsx"
 
     # dashboard
+    REMOVE_REACT "$Components_Dashboard_BeforeContent" "Dashboard/BeforeContent.tsx"
+    REMOVE_REACT "$Components_Dashboard_AfterContent" "Dashboard/AfterContent.tsx"
     REMOVE_REACT "$Components_Dashboard_ServerRow_BeforeEntryName" "Dashboard/ServerRow/BeforeEntryName.tsx"
     REMOVE_REACT "$Components_Dashboard_ServerRow_AfterEntryName" "Dashboard/ServerRow/AfterEntryName.tsx"
     REMOVE_REACT "$Components_Dashboard_ServerRow_BeforeEntryDescription" "Dashboard/ServerRow/BeforeEntryDescription.tsx"
@@ -366,6 +367,7 @@ Command() {
       php artisan config:cache
       php artisan route:clear
       php artisan cache:clear
+      php artisan bp:cache
     } &>> "$BLUEPRINT__DEBUG"
 
     # Make sure all files have correct permissions.

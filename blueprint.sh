@@ -16,7 +16,7 @@
   USERSHELL="/bin/bash" #;
 
 # Defines the version Blueprint will display as the active one.
-  VERSION="beta-2024-08"
+  VERSION="beta-2024-08-nova-1"
 
 # Default GitHub repository to use when upgrading Blueprint.
   REPOSITORY="itsvic-dev/blueprint-for-nova"

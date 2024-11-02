@@ -41,9 +41,9 @@
       </a>
     </div>
 
-    <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 text-center">
+    <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 text-center" style="padding-left: 0px; padding-right: 20px;">
       <a href="{{ route('admin.nova') }}">
-        <button class="btn extension-btn" style="width:100%;margin-bottom:17px;">
+      <button class="btn extension-btn" style="width:100%;margin-bottom:17px;">
           <div class="extension-btn-overlay"></div>
           <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image2"/>
           <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image"/>

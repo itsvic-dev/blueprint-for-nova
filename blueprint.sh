@@ -1,5 +1,5 @@
 #!/bin/bash
-# © 2023-2024 Ivy (prpl.wtf)
+# © 2023-2024 Emma (prpl.wtf)
 # Blueprint for Nova © 2024 it's vic!
 
 # Learn more @ blueprint.zip
@@ -16,7 +16,8 @@
   USERSHELL="/bin/bash" #;
 
 # Defines the version Blueprint will display as the active one.
-  VERSION="beta-2024-08-nova-1"
+  VERSION="beta-2024-12"
+  BLUEPRINT_ENGINE="solstice"
 
 # Default GitHub repository to use when upgrading Blueprint.
   REPOSITORY="itsvic-dev/blueprint-for-nova"
@@ -38,12 +39,21 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     cmd="${COMP_WORDS[1]}"
 
     case "${cmd}" in
-      -install|-add|-i) opts="$(find "$BLUEPRINT__SOURCEFOLDER"/*.blueprint | sed -e "s|^$BLUEPRINT__SOURCEFOLDER/||g" -e "s|.blueprint$||g")" ;;
-      -remove|-r) opts="$(sed "s|,||g" "$BLUEPRINT__SOURCEFOLDER/.blueprint/extensions/blueprint/private/db/installed_extensions")" ;;
+      -install|-add|-i|-query|-q)
+        opts="$(
+          find "$BLUEPRINT__SOURCEFOLDER"/*.blueprint 2> /dev/null |
+          sed -e "s|^$BLUEPRINT__SOURCEFOLDER/||g" -e "s|.blueprint$||g"
+        )"
+      ;;
+      -remove|-r)
+        opts="$(
+          sed "s|,| |g" "$BLUEPRINT__SOURCEFOLDER/.blueprint/extensions/blueprint/private/db/installed_extensions"
+        )"
+      ;;
       -export) opts="expose" ;;
       -upgrade) opts="remote" ;;
       
-      *) opts="-install -add -remove -init -build -export -wipe -version -help -info -debug -upgrade -rerun-install" ;;
+      *) opts="-install -add -remove -query -init -build -export -wipe -version -help -info -debug -upgrade -rerun-install" ;;
     esac
 
     if [[ ${cur} == * ]]; then
@@ -63,6 +73,8 @@ if [[ -f "/.dockerenv" ]]; then
 else
   DOCKER="n"
 fi
+
+source "$(realpath "$(dirname "$0")")"/.blueprintrc 2> /dev/null
 
 # This has caused a bunch of errors but is just here to make sure people actually upload the
 # "blueprint" folder onto their panel when installing Blueprint. Pick your poison.
@@ -88,24 +100,15 @@ source scripts/libraries/parse_yaml.sh    || missinglibs+="[parse_yaml]"
 source scripts/libraries/grabenv.sh       || missinglibs+="[grabenv]"
 source scripts/libraries/logFormat.sh     || missinglibs+="[logFormat]"
 source scripts/libraries/misc.sh          || missinglibs+="[misc]"
-source scripts/libraries/configutility.sh || missinglibs+="[configutility]"
 
-
-# -config
-# usage: "cITEM=VALUE bash blueprint.sh -config"
-if [[ "$1" == "-config" ]]; then ConfigUtility; fi
 
 cdhalt() { PRINT FATAL "Attempted navigation into nonexistent directory, halting process."; exit 1; }
 depend() {
-  # Check for compatible node versions
-  nodeVer=$(node -v)
-  if [[ $nodeVer != "v17."* ]] \
-  && [[ $nodeVer != "v18."* ]] \
-  && [[ $nodeVer != "v19."* ]] \
-  && [[ $nodeVer != "v20."* ]] \
-  && [[ $nodeVer != "v21."* ]] \
-  && [[ $nodeVer != "v22."* ]]; then
-    DEPEND_MISSING=true
+  # Make sure Node.js is version 17 or higher.
+  nodeMajor=$(node -v | awk -F. '{print $1}' | sed 's/[^0-9]*//g')
+  if [[ $nodeMajor -lt 17 ]]; then
+    PRINT FATAL "Blueprint requires Node.js version 17 or higher to run."
+    exit 1
   fi
 
   # Check for required (both internal and external) dependencies.
@@ -132,11 +135,7 @@ depend() {
   if [[ $DEPEND_MISSING == true ]]; then
     PRINT FATAL "Some framework dependencies are not installed or detected."
 
-    if [[ $nodeVer != "v18."* ]] \
-    && [[ $nodeVer != "v19."* ]] \
-    && [[ $nodeVer != "v20."* ]] \
-    && [[ $nodeVer != "v21."* ]] \
-    && [[ $nodeVer != "v22."* ]]; then
+    if [[ $nodeMajor -lt 17 ]]; then
       PRINT FATAL "Required dependency \"node\" is using an unsupported version."
     fi
 
@@ -151,7 +150,6 @@ depend() {
     if ! [ -x "$(command -v sed)"                            ]; then PRINT FATAL "Required dependency \"sed\" is not installed or detected.";       fi
     if ! [ -x "$(command -v awk)"                            ]; then PRINT FATAL "Required dependency \"awk\" is not installed or detected.";       fi
     if ! [ -x "$(command -v tput)"                           ]; then PRINT FATAL "Required dependency \"tput\" is not installed or detected.";      fi
-    if ! [ "$(ls "node_modules/"*"cross-env"* 2> /dev/null)" ]; then PRINT FATAL "Required dependency \"cross-env\" is not installed or detected."; fi
     if ! [ "$(ls "node_modules/"*"webpack"* 2> /dev/null)"   ]; then PRINT FATAL "Required dependency \"webpack\" is not installed or detected.";   fi
     if ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"     ]; then PRINT FATAL "Required dependency \"react\" is not installed or detected.";     fi
 
@@ -159,7 +157,6 @@ depend() {
     if [[ $missinglibs == *"[grabEnv]"*       ]]; then PRINT FATAL "Required internal dependency \"internal:grabEnv\" is not installed or detected.";    fi
     if [[ $missinglibs == *"[logFormat]"*     ]]; then PRINT FATAL "Required internal dependency \"internal:logFormat\" is not installed or detected.";  fi
     if [[ $missinglibs == *"[misc]"*          ]]; then PRINT FATAL "Required internal dependency \"internal:misc\" is not installed or detected.";       fi
-    if [[ $missinglibs == *"[configutility]"* ]]; then PRINT FATAL "Required internal dependency \"internal:configutility\" is not installed or detected.";       fi
 
     exit 1
   fi
@@ -169,26 +166,45 @@ depend() {
 assignflags() {
   F_ignorePlaceholders=false
   F_forceLegacyPlaceholders=false
-  F_hasInstallScript=false
-  F_hasRemovalScript=false
-  F_hasExportScript=false
   F_developerIgnoreInstallScript=false
   F_developerIgnoreRebuild=false
-  F_developerForceMigrate=false
   F_developerKeepApplicationCache=false
   F_developerEscalateInstallScript=false
   F_developerEscalateExportScript=false
   if [[ ( $flags == *"ignorePlaceholders,"*             ) || ( $flags == *"ignorePlaceholders"             ) ]]; then F_ignorePlaceholders=true             ;fi
   if [[ ( $flags == *"forceLegacyPlaceholders,"*        ) || ( $flags == *"forceLegacyPlaceholders"        ) ]]; then F_forceLegacyPlaceholders=true        ;fi
-  if [[ ( $flags == *"hasInstallScript,"*               ) || ( $flags == *"hasInstallScript"               ) ]]; then F_hasInstallScript=true               ;fi
-  if [[ ( $flags == *"hasRemovalScript,"*               ) || ( $flags == *"hasRemovalScript"               ) ]]; then F_hasRemovalScript=true               ;fi
-  if [[ ( $flags == *"hasExportScript,"*                ) || ( $flags == *"hasExportScript"                ) ]]; then F_hasExportScript=true                ;fi
   if [[ ( $flags == *"developerIgnoreInstallScript,"*   ) || ( $flags == *"developerIgnoreInstallScript"   ) ]]; then F_developerIgnoreInstallScript=true   ;fi
   if [[ ( $flags == *"developerIgnoreRebuild,"*         ) || ( $flags == *"developerIgnoreRebuild"         ) ]]; then F_developerIgnoreRebuild=true         ;fi
-  if [[ ( $flags == *"developerForceMigrate,"*          ) || ( $flags == *"developerForceMigrate"          ) ]]; then F_developerForceMigrate=true          ;fi
   if [[ ( $flags == *"developerKeepApplicationCache,"*  ) || ( $flags == *"developerKeepApplicationCache"  ) ]]; then F_developerKeepApplicationCache=true  ;fi
   if [[ ( $flags == *"developerEscalateInstallScript,"* ) || ( $flags == *"developerEscalateInstallScript" ) ]]; then F_developerEscalateInstallScript=true ;fi
   if [[ ( $flags == *"developerEscalateExportScript,"*  ) || ( $flags == *"developerEscalateExportScript"  ) ]]; then F_developerEscalateExportScript=true  ;fi
+
+
+  warn_deprecated_flag() { PRINT WARNING "Extension flag '$1' is deprecated."; }
+  
+  F_hasInstallScript=false
+  if [[ ( $flags == *"hasInstallScript,"* ) || ( $flags == *"hasInstallScript" ) ]]; then
+    warn_deprecated_flag "hasInstallScript"
+    F_hasInstallScript=true
+  fi
+
+  F_hasRemovalScript=false
+  if [[ ( $flags == *"hasRemovalScript,"* ) || ( $flags == *"hasRemovalScript" ) ]]; then
+    warn_deprecated_flag "hasRemovalScript"
+    F_hasRemovalScript=true
+  fi
+  
+  F_hasExportScript=false
+  if [[ ( $flags == *"hasExportScript,"* ) || ( $flags == *"hasExportScript" ) ]]; then
+    warn_deprecated_flag "hasExportScript"
+    F_hasExportScript=true
+  fi
+  
+  F_developerForceMigrate=false
+  if [[ ( $flags == *"developerForceMigrate,"* ) || ( $flags == *"developerForceMigrate" ) ]]; then
+    warn_deprecated_flag "developerForceMigrate"
+    F_developerForceMigrate=true
+  fi
 }
 
 # Adds the "blueprint" command to the /usr/local/bin directory and configures the correct permissions for it.
@@ -215,7 +231,7 @@ if [[ $1 != "-bash" ]]; then
     exit 2
   else
     # Only run if Blueprint is not in the process of upgrading.
-    if [[ $1 != "--post-upgrade" ]]; then
+    if [[ ( $BLUEPRINT_ENVIRONMENT != "upgrade" ) && ( $1 != "--post-upgrade" ) ]]; then
       # Print Blueprint icon with ascii characters.
       C0="\x1b[0m"
       C1="\x1b[31;43;1m"
@@ -225,13 +241,20 @@ if [[ $1 != "-bash" ]]; then
       echo -e "$C0" \
         "\n$C4  ██$C1▌$C2▌$C3▌$C0   Blueprint Framework" \
         "\n$C4██  ██$C1▌$C2▌$C3▌$C0 https://blueprint.zip" \
-        "\n$C4  ████$C1▌$C2▌$C3▌$C0 © 2023-2024 Ivy (prpl.wtf)\n";
+        "\n$C4  ████$C1▌$C2▌$C3▌$C0 © 2023-2024 Emma (prpl.wtf)\n";
+      
+      export PROGRESS_TOTAL=11
+      export PROGRESS_NOW=0
     fi
 
     PRINT INFO "Searching and validating framework dependencies.."
     depend # Check if required dependencies are installed
+
+    ((PROGRESS_NOW++))
     
     placeshortcut # Place Blueprint shortcut
+
+    ((PROGRESS_NOW++))
 
     # Link directories.
     PRINT INFO "Linking directories and filesystems.."
@@ -242,11 +265,16 @@ if [[ $1 != "-bash" ]]; then
     } 2>> "$BLUEPRINT__DEBUG"
     php artisan storage:link &>> "$BLUEPRINT__DEBUG"
 
+    ((PROGRESS_NOW++))
+
     # Copy "Blueprint" extension page logo from assets.
     cp "$FOLDER/.blueprint/assets/Emblem/emblem.jpg" "$FOLDER/.blueprint/extensions/blueprint/assets/logo.jpg"
 
+    ((PROGRESS_NOW++))
+
     # Put application into maintenance.
     PRINT INPUT "Would you like to put your application into maintenance while Blueprint is installing? (Y/n)"
+    hide_progress
     read -r YN
     if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
       MAINTENANCE="true"
@@ -257,27 +285,35 @@ if [[ $1 != "-bash" ]]; then
       PRINT INFO "Putting application into maintenance has been skipped."
     fi
 
+    ((PROGRESS_NOW++))
+
     # Flush cache.
-    PRINT INFO "Flushing view, config and route cache.."
+    PRINT INFO "Flushing cache.."
     {
       php artisan view:cache
       php artisan config:cache
       php artisan route:clear
       php artisan cache:clear
       php artisan bp:cache
+      php artisan bp:version:cache
     } &>> "$BLUEPRINT__DEBUG"
 
-    # Run migrations if Blueprint is not upgrading.
-    if [[ ( $1 != "--post-upgrade" ) && ( $DOCKER != "y" ) ]]; then
-      PRINT INPUT "Would you like to migrate your database? (Y/n)"
-      read -r YN
-      if [[ ( $YN == "y"* ) || ( $YN == "Y"* ) || ( $YN == "" ) ]]; then
-        PRINT INFO "Running database migrations.."
-        php artisan migrate --force
-      else
-        PRINT INFO "Database migrations have been skipped."
-      fi
+    ((PROGRESS_NOW++))
+
+    # Run migrations if Blueprint is not running through Docker.
+    if [[ $DOCKER != "y" ]]; then
+      PRINT INFO "Running database migrations.."
+      hide_progress
+      php artisan migrate --force
     fi
+
+    ((PROGRESS_NOW++))
+
+    # Seed Blueprint database records
+    PRINT INFO "Seeding Blueprint database records.."
+    php artisan db:seed --class=BlueprintSeeder --force &>> "$BLUEPRINT__DEBUG"
+
+    ((PROGRESS_NOW++))
 
     # Make sure all files have correct permissions.
     PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
@@ -285,15 +321,15 @@ if [[ $1 != "-bash" ]]; then
       -path "$FOLDER/node_modules" -prune \
       -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
 
+    ((PROGRESS_NOW++))
+
     # Rebuild panel assets.
     PRINT INFO "Rebuilding panel assets.."
+    hide_progress
+    cd "$FOLDER" || cdhalt
     yarn run build:production --progress
 
-    if [[ $DOCKER != "y" ]]; then
-      # Sync some database values.
-      PRINT INFO "Syncing Blueprint-related database values.."
-      php artisan bp:sync
-    fi
+    ((PROGRESS_NOW++))
 
     if [[ $DOCKER != "y" ]] && [[ $MAINTENANCE == "true" ]]; then
       # Put application into production.
@@ -301,14 +337,18 @@ if [[ $1 != "-bash" ]]; then
       php artisan up &>> "$BLUEPRINT__DEBUG"
     fi
 
+    ((PROGRESS_NOW++))
+
+    # Let the panel know the user has finished installation.
+    dbAdd "blueprint.setupFinished"
+    sed -i "s~NOTINSTALLED~INSTALLED~g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
+
     # Finish installation
-    if [[ $1 != "--post-upgrade" ]]; then
+    if [[ ( $BLUEPRINT_ENVIRONMENT != "upgrade" ) && ( $1 != "--post-upgrade" ) ]]; then
       PRINT SUCCESS "Blueprint has completed its installation process."
+      hide_progress
     fi
 
-    dbAdd "blueprint.setupFinished"
-    # Let the panel know the user has finished installation.
-    sed -i "s~NOTINSTALLED~INSTALLED~g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
     exit 0
   fi
 fi
@@ -321,6 +361,7 @@ cmd="${2}"
 case "$cmd" in
   -add|-install|-i) source ./scripts/commands/extensions/install.sh ;;
   -remove|-r) source ./scripts/commands/extensions/remove.sh ;;
+  -query|-q) source ./scripts/commands/extensions/query.sh ;;
   -init|-I) source ./scripts/commands/developer/init.sh ;;
   -build|-b) source ./scripts/commands/developer/build.sh ;;
   -wipe|-w) source ./scripts/commands/developer/wipe.sh ;;

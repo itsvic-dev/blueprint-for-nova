@@ -1,28 +1,32 @@
 <?php
 
-namespace Pterodactyl\Console\Commands\BlueprintFramework;
+namespace Pterodactyl\Console\Commands\BlueprintFramework\Version;
 
 use Illuminate\Console\Command;
 use Pterodactyl\BlueprintFramework\Services\PlaceholderService\BlueprintPlaceholderService;
+use Pterodactyl\BlueprintFramework\Libraries\ExtensionLibrary\Console\BlueprintConsoleLibrary as BlueprintExtensionLibrary;
 
-class LatestCommand extends Command
+class VersionCacheCommand extends Command
 {
-  protected $description = 'Get the version name of the newest release of Blueprint.';
-  protected $signature = 'bp:latest';
+  protected $description = 'Fetches and caches the latest release name';
+  protected $signature = 'bp:version:cache';
 
   /**
-   * LatestCommand constructor.
+   * VersionCacheCommand constructor.
    */
   public function __construct(
     private BlueprintPlaceholderService $PlaceholderService,
-  ) { parent::__construct(); }
+    private BlueprintExtensionLibrary $blueprint,
+  ) {
+    parent::__construct();
+  }
 
   /**
    * Handle execution of command.
    */
   public function handle()
   {
-    $api_url = $this->PlaceholderService->api_url()."/api/latest";
+    $api_url = $this->PlaceholderService->api_url() . "/api/latest";
     $context = stream_context_create([
       'http' => [
         'method' => 'GET',
@@ -35,15 +39,15 @@ class LatestCommand extends Command
       $data = json_decode($cleaned_response, true);
       if (isset($data['name'])) {
         $latest_version = $data['name'];
-        echo "$latest_version";
-        return "$latest_version";
+        $this->blueprint->dbSet('blueprint', 'internal:version:latest', $latest_version);
+        return true;
       } else {
         echo "Error: Unable to fetch the latest release version.";
-        return "Error";
+        return false;
       }
     } else {
       echo "Error: Failed to make the API request.";
-      return "Error";
+      return false;
     }
   }
 }

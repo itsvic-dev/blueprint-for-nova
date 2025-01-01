@@ -1,6 +1,9 @@
+![License](https://github.com/user-attachments/assets/d73a6ff5-4d54-4d2e-bfc0-e0b3b1b13c50)
+
+```
 MIT License
 
-Copyright (c) 2023-2024 Ivy (prpl.wtf)
+Copyright (c) 2023-2024 Emma (prpl.wtf)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +22,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```

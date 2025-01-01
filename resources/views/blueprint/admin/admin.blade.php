@@ -17,27 +17,27 @@
 @endsection
 
 @section("blueprint.navigation")
-  <?php
-    $extensionsIcon="fa fa-puzzle-piece";
-    if($blueprint->fileRead($PlaceholderService->folder()."/.blueprint/extensions/blueprint/private/db/onboarding") == "true"){
-      $extensionsIcon="fa fa-puzzle-piece bx-flashing";
-    }
-  ?>
-
   <li>
     <li>
       <a href="{{ route('admin.extensions') }}" data-toggle="tooltip" data-placement="bottom" title="Extensions">
-        <i class='{{ $extensionsIcon }}'></i>
+        <i class='fa fa-puzzle-piece'></i>
       </a>
     </li>
   </li>
 @endsection
 
+@section("blueprint.sidenav")
+  @if($blueprint->dbGet("blueprint", "flags:show_in_sidebar"))
+    <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.extensions') ?: 'active' }}">
+      <a href="{{ route('admin.extensions') }}">
+        <i class="fa fa-puzzle-piece"></i> <span>Extensions</span>
+      </a>
+    </li>
+  @endif
+@endsection
+
 @section("blueprint.notifications")
   <?php
-    if($blueprint->fileRead($PlaceholderService->folder()."/.blueprint/extensions/blueprint/private/db/onboarding") == "true") {
-      $blueprint->fileWipe($PlaceholderService->folder()."/.blueprint/extensions/blueprint/private/db/onboarding");
-    }
     $notification = $blueprint->dbGet("blueprint", "notification:text");
     if($notification != null) {
       echo "<div class=\"notification\">

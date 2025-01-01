@@ -3,25 +3,32 @@
 RemoveExtension() {
   if [[ $USER_CONFIRMED_REMOVAL != "yes" ]]; then
     PRINT INPUT "Do you want to proceed with this transaction? Some files might not be removed properly. (y/N)"
+    hide_progress
     read -r YN
-    if [[ ( ( ${YN} != "y"* ) && ( ${YN} != "Y"* ) ) || ( ( ${YN} == "" ) ) ]]; then PRINT INFO "Extension removal cancelled.";exit 1;fi
+    if [[ ( ( ${YN} != "y"* ) && ( ${YN} != "Y"* ) ) || ( ( ${YN} == "" ) ) ]]; then
+      PRINT INFO "Extension removal cancelled."
+      hide_progress
+      exit 1
+    fi
   fi
   export USER_CONFIRMED_REMOVAL="yes"
 
   PRINT INFO "\x1b[34;mRemoving $1...\x1b[0m \x1b[37m($current/$total)\x1b[0m"
 
   # Check if the extension is installed.
-  FILE=$1
-  if [[ $FILE == *".blueprint" ]]; then FILE="${FILE::-10}"; fi
-  set -- "${@:1:2}" "$FILE" "${@:4}"
+  EXTENSION=$1
+  if [[ $EXTENSION == *".blueprint" ]]; then EXTENSION="${EXTENSION::-10}"; fi
+  set -- "${@:1:2}" "$EXTENSION" "${@:4}"
 
-  if [[ $(cat ".blueprint/extensions/blueprint/private/db/installed_extensions") != *"$1,"* ]]; then
-    PRINT FATAL "'$1' is not installed or detected."
+  if [[ $(cat ".blueprint/extensions/blueprint/private/db/installed_extensions") != *"$EXTENSION,"* ]]; then
+    PRINT FATAL "'$EXTENSION' is not installed or detected."
     return 2
   fi
 
-  if [[ -f ".blueprint/extensions/$1/private/.store/conf.yml" ]]; then
-    eval "$(parse_yaml ".blueprint/extensions/$1/private/.store/conf.yml" conf_)"
+  ((PROGRESS_NOW++))
+
+  if [[ -f ".blueprint/extensions/$EXTENSION/private/.store/conf.yml" ]]; then
+    eval "$(parse_yaml ".blueprint/extensions/$EXTENSION/private/.store/conf.yml" conf_)"
     # Add aliases for config values to make working with them easier.
     local name="${conf_info_name//&/\\&}"
     local identifier="${conf_info_identifier//&/\\&}"
@@ -47,32 +54,50 @@ RemoveExtension() {
     local data_console="$conf_data_console"; #(optional)
 
     local requests_views="$conf_requests_views"; #(optional)
-    local requests_controllers="$conf_requests_controllers"; #(optional)
+    local requests_app="$conf_requests_app"; #(optional)
     local requests_routers="$conf_requests_routers"; #(optional)
     local requests_routers_application="$conf_requests_routers_application"; #(optional)
     local requests_routers_client="$conf_requests_routers_client"; #(optional)
     local requests_routers_web="$conf_requests_routers_web"; #(optional)
 
     local database_migrations="$conf_database_migrations"; #(optional)
+
+
+    # Add backwards compatibility
+    if [[ $conf_requests_controllers != "" ]]; then
+      local requests_app="$conf_requests_controllers"
+      PRINT WARNING "Config value 'requests_controllers' is deprecated, use 'requests_app' instead."
+    fi
   else
     PRINT FATAL "Extension configuration file not found or detected."
     return 1
   fi
 
-  PRINT INFO "Searching and validating framework dependencies.."
-  depend
+  ((PROGRESS_NOW++))
+
+  if [[ $current == "1" ]]; then
+    # Only needed for one extension
+    PRINT INFO "Searching and validating framework dependencies.."
+    depend
+  fi
+
+  ((PROGRESS_NOW++))
 
   # Assign variables to extension flags.
   PRINT INFO "Reading and assigning extension flags.."
   assignflags
 
-  if $F_hasRemovalScript; then
+  ((PROGRESS_NOW++))
+
+  if [[ -f ".blueprint/extensions/$identifier/private/remove.sh" ]]; then
     PRINT WARNING "Extension uses a custom removal script, proceed with caution."
+    hide_progress
     chmod +x ".blueprint/extensions/$identifier/private/remove.sh"
 
     # Run script while also parsing some useful variables for the uninstall script to use.
     su "$WEBUSER" -s "$USERSHELL" -c "
         cd \"$FOLDER\";
+        ENGINE=\"$BLUEPRINT_ENGINE\"         \
         EXTENSION_IDENTIFIER=\"$identifier\" \
         EXTENSION_TARGET=\"$target\"         \
         EXTENSION_VERSION=\"$version\"       \
@@ -84,21 +109,7 @@ RemoveExtension() {
     echo -e "\e[0m\x1b[0m\033[0m"
   fi
 
-  # Remove admin button
-  PRINT INFO "Editing 'extensions' admin page.."
-  sed -n -i "/<!--@$identifier:s@-->/{p; :a; N; /<!--@$identifier:e@-->/!ba; s/.*\n//}; p" "resources/views/admin/extensions.blade.php"
-  sed -i \
-    -e "s~<!--@$identifier:s@-->~~g" \
-    -e "s~<!--@$identifier:e@-->~~g" \
-    "resources/views/admin/extensions.blade.php"
-
-  # Remove admin routes
-  PRINT INFO "Removing admin routes.."
-  sed -n -i "/\/\/ $identifier:start/{p; :a; N; /\/\/ $identifier:stop/!ba; s/.*\n//}; p" "routes/blueprint.php"
-  sed -i \
-    -e "/\/\/ $identifier:start/d" \
-    -e "/\/\/ $identifier:stop/d" \
-    "routes/blueprint.php"
+  ((PROGRESS_NOW++))
 
   # Remove admin view and controller
   PRINT INFO "Removing admin view and controller.."
@@ -106,11 +117,15 @@ RemoveExtension() {
     "resources/views/admin/extensions/$identifier" \
     "app/Http/Controllers/Admin/Extensions/$identifier"
 
+  ((PROGRESS_NOW++))
+
   # Remove admin css
   if [[ $admin_css != "" ]]; then
     PRINT INFO "Removing and unlinking admin css.."
     sed -i "s~@import url(/assets/extensions/$identifier/admin.style.css);~~g" ".blueprint/extensions/blueprint/assets/admin.extensions.css"
   fi
+
+  ((PROGRESS_NOW++))
 
   # Remove admin wrapper
   if [[ $admin_wrapper != "" ]]; then
@@ -118,11 +133,15 @@ RemoveExtension() {
     rm "resources/views/blueprint/admin/wrappers/$identifier.blade.php";
   fi
 
+  ((PROGRESS_NOW++))
+
   # Remove dashboard wrapper
   if [[ $dashboard_wrapper != "" ]]; then
     PRINT INFO "Removing and unlinking dashboard wrapper.."
     rm "resources/views/blueprint/dashboard/wrappers/$identifier.blade.php";
   fi
+
+  ((PROGRESS_NOW++))
 
   # Remove dashboard css
   if [[ $dashboard_css != "" ]]; then
@@ -131,6 +150,8 @@ RemoveExtension() {
     rm "resources/scripts/blueprint/css/imported/$identifier.css"
     YARN="y"
   fi
+
+  ((PROGRESS_NOW++))
 
   # Remove dashboard components
   if [[ $dashboard_components != "" ]]; then
@@ -143,14 +164,25 @@ RemoveExtension() {
     s="import ${identifier^}Component from '"; e="';"
 
     REMOVE_REACT() {
-      if [[ ! $1 == "" ]]; then
+      if [[ ! $EXTENSION == "" ]]; then
         # remove components
         sed -i \
-          -e "s~""${s}@/blueprint/extensions/${identifier}/$1${e}""~~g" \
+          -e "s~""${s}@/blueprint/extensions/${identifier}/$EXTENSION${e}""~~g" \
           -e "s~""<${identifier^}Component />""~~g" \
           "$co"/"$2"
       fi
     }
+
+    # Backwards compatibility
+    if [ -n "$Components_Dashboard_BeforeContent" ]; then Components_Dashboard_Serverlist_BeforeContent="$Components_Dashboard_BeforeContent"; fi
+    if [ -n "$Components_Dashboard_AfterContent" ]; then Components_Dashboard_Serverlist_AfterContent="$Components_Dashboard_AfterContent"; fi
+    if [ -n "$Components_Dashboard_ServerRow_" ]; then 
+      Components_Dashboard_Serverlist_ServerRow_BeforeEntryName="$Components_Dashboard_ServerRow_BeforeEntryName"
+      Components_Dashboard_Serverlist_ServerRow_AfterEntryName="$Components_Dashboard_ServerRow_AfterEntryName"
+      Components_Dashboard_Serverlist_ServerRow_BeforeEntryDescription="$Components_Dashboard_ServerRow_BeforeEntryDescription"
+      Components_Dashboard_Serverlist_ServerRow_AfterEntryDescription="$Components_Dashboard_ServerRow_AfterEntryDescription"
+      Components_Dashboard_Serverlist_ServerRow_ResourceLimits="$Components_Dashboard_ServerRow_ResourceLimits"
+    fi
 
     # remove component items
     # -> REMOVE_REACT "$Components_" "path/.tsx" "$OldComponents_"
@@ -166,13 +198,15 @@ RemoveExtension() {
     REMOVE_REACT "$Components_Navigation_SubNavigation_AfterSubNavigation" "Navigation/SubNavigation/AfterSubNavigation.tsx"
 
     # dashboard
-    REMOVE_REACT "$Components_Dashboard_BeforeContent" "Dashboard/BeforeContent.tsx"
-    REMOVE_REACT "$Components_Dashboard_AfterContent" "Dashboard/AfterContent.tsx"
-    REMOVE_REACT "$Components_Dashboard_ServerRow_BeforeEntryName" "Dashboard/ServerRow/BeforeEntryName.tsx"
-    REMOVE_REACT "$Components_Dashboard_ServerRow_AfterEntryName" "Dashboard/ServerRow/AfterEntryName.tsx"
-    REMOVE_REACT "$Components_Dashboard_ServerRow_BeforeEntryDescription" "Dashboard/ServerRow/BeforeEntryDescription.tsx"
-    REMOVE_REACT "$Components_Dashboard_ServerRow_AfterEntryDescription" "Dashboard/ServerRow/AfterEntryDescription.tsx"
-    REMOVE_REACT "$Components_Dashboard_ServerRow_ResourceLimits" "Dashboard/ServerRow/ResourceLimits.tsx"
+    REMOVE_REACT "$Components_Dashboard_Global_BeforeSection" "Dashboard/Global/BeforeSection.tsx"
+    REMOVE_REACT "$Components_Dashboard_Global_AfterSection" "Dashboard/Global/AfterSection.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_BeforeContent" "Dashboard/Serverlist/BeforeContent.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_AfterContent" "Dashboard/Serverlist/AfterContent.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_ServerRow_BeforeEntryName" "Dashboard/Serverlist/ServerRow/BeforeEntryName.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_ServerRow_AfterEntryName" "Dashboard/Serverlist/ServerRow/AfterEntryName.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_ServerRow_BeforeEntryDescription" "Dashboard/Serverlist/ServerRow/BeforeEntryDescription.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_ServerRow_AfterEntryDescription" "Dashboard/Serverlist/ServerRow/AfterEntryDescription.tsx"
+    REMOVE_REACT "$Components_Dashboard_Serverlist_ServerRow_ResourceLimits" "Dashboard/Serverlist/ServerRow/ResourceLimits.tsx"
 
     # authentication
     REMOVE_REACT "$Components_Authentication_Container_BeforeContent" "Authentication/Container/BeforeContent.tsx"
@@ -233,6 +267,8 @@ RemoveExtension() {
     YARN="y"
   fi
 
+  ((PROGRESS_NOW++))
+
   # Remove custom routes
   PRINT INFO "Unlinking navigation routes.."
   sed -i \
@@ -250,6 +286,8 @@ RemoveExtension() {
     \
     "resources/scripts/blueprint/extends/routers/routes.ts"
 
+  ((PROGRESS_NOW++))
+
   # Remove views folder
   if [[ $requests_views != "" ]]; then
     PRINT INFO "Removing and unlinking views folder.."
@@ -258,13 +296,17 @@ RemoveExtension() {
       "resources/views/blueprint/extensions/$identifier"
   fi
 
-  # Remove controllers folder
-  if [[ $requests_controllers != "" ]]; then
-    PRINT INFO "Removing and unlinking controllers folder.."
+  ((PROGRESS_NOW++))
+
+  # Remove app folder
+  if [[ $requests_app != "" ]]; then
+    PRINT INFO "Removing and unlinking app folder.."
     rm -R \
-      ".blueprint/extensions/$identifier/controllers" \
+      ".blueprint/extensions/$identifier/app" \
       "app/BlueprintFramework/Extensions/$identifier"
   fi
+
+  ((PROGRESS_NOW++))
 
   # Remove router files
   if [[ $requests_routers             != "" ]] \
@@ -280,6 +322,8 @@ RemoveExtension() {
       &>> "$BLUEPRINT__DEBUG"
   fi
 
+  ((PROGRESS_NOW++))
+
   # Remove console folder
   if [[ $data_console != "" ]]; then # further expand on this if needed
     PRINT INFO "Removing and unlinking console folder.."
@@ -290,9 +334,13 @@ RemoveExtension() {
       2>> "$BLUEPRINT__DEBUG"
   fi
 
+  ((PROGRESS_NOW++))
+
   # Remove private folder
   PRINT INFO "Removing and unlinking private folder.."
   rm -R ".blueprint/extensions/$identifier/private"
+
+  ((PROGRESS_NOW++))
 
   # Remove public folder
   if [[ $data_public != "" ]]; then
@@ -302,32 +350,45 @@ RemoveExtension() {
       "public/extensions/$identifier"
   fi
 
+  ((PROGRESS_NOW++))
+
   # Remove assets folder
   PRINT INFO "Removing and unlinking assets folder.."
   rm -R \
     ".blueprint/extensions/$identifier/assets" \
     "public/assets/extensions/$identifier"
+  
+  ((PROGRESS_NOW++))
 
   # Remove extension filesystem (ExtensionFS)
   PRINT INFO "Removing and unlinking extension filesystem.."
   rm -r \
     ".blueprint/extensions/$identifier/fs" \
-    "storage/extensions/$identifier"
+    ".blueprint/extensions/$identifier/.fs" \
+    "storage/extensions/$identifier" \
+    "storage/.extensions/$identifier" \
+    "public/fs/$identifier" > /dev/null 2>&1
   sed -i \
     -e "s/\/\* ${identifier^}Start \*\/.*\/\* ${identifier^}End \*\///" \
     -e "s~/\* ${identifier^}Start \*/~~g" \
     -e "s~/\* ${identifier^}End \*/~~g" \
     "config/ExtensionFS.php"
 
+  ((PROGRESS_NOW++))
+
   # Remove extension directory
   PRINT INFO "Removing extension folder.."
   rm -R ".blueprint/extensions/$identifier"
+
+  ((PROGRESS_NOW++))
 
   # Remove from installed list
   PRINT INFO "Removing '$identifier' from active extensions list.."
   sed -i "s~$identifier,~~g" ".blueprint/extensions/blueprint/private/db/installed_extensions"
 
   if [[ $RemovedExtensions == "" ]]; then RemovedExtensions="$identifier"; else RemovedExtensions+=", $identifier"; fi
+  
+  ((PROGRESS_NOW++))
 
   # Unset variables
   PRINT INFO "Unsetting variables.."
@@ -341,24 +402,39 @@ Command() {
   current=0
   extensions="$*"
   total=$(echo "$extensions" | wc -w)
+
+  local EXTENSIONS_STEPS=22 #Total amount of steps per extension
+  local FINISH_STEPS=5 #Total amount of finalization 
+  
+  export PROGRESS_TOTAL="$(("$FINISH_STEPS" + "$EXTENSIONS_STEPS" * "$total"))"
+  export PROGRESS_NOW=0
+
   for extension in $extensions; do
     (( current++ ))
     RemoveExtension "$extension" "$current" "$total"
+    export PROGRESS_NOW="$(("$EXTENSIONS_STEPS" * "$current"))"
   done
 
   if [[ $RemovedExtensions != "" ]]; then
+    ((PROGRESS_NOW++))
+
     # Finalize transaction
     PRINT INFO "Finalizing transaction.."
 
     # Rebuild panel
     if [[ $YARN == "y" ]]; then
       PRINT INFO "Rebuilding panel assets.."
+      cd "$FOLDER" || cdhalt
       yarn run build:production --progress
     fi
+
+    ((PROGRESS_NOW++))
 
     # Link filesystems
     PRINT INFO "Linking filesystems.."
     php artisan storage:link &>> "$BLUEPRINT__DEBUG"
+
+    ((PROGRESS_NOW++))
 
     # Flush cache.
     PRINT INFO "Flushing view, config and route cache.."
@@ -368,7 +444,10 @@ Command() {
       php artisan route:clear
       php artisan cache:clear
       php artisan bp:cache
+      php artisan queue:restart
     } &>> "$BLUEPRINT__DEBUG"
+
+    ((PROGRESS_NOW++))
 
     # Make sure all files have correct permissions.
     PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
@@ -376,13 +455,16 @@ Command() {
     -path "$FOLDER/node_modules" -prune \
     -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
 
-    sendTelemetry "FINISH_EXTENSION_REMOVAL" >> "$BLUEPRINT__DEBUG"
+    ((PROGRESS_NOW++))
+
     CorrectPhrasing="have"
     if [[ $total = 1 ]]; then CorrectPhrasing="has"; fi
     PRINT SUCCESS "$RemovedExtensions $CorrectPhrasing been removed."
+    hide_progress
 
     exit 0
-  else
-    exit 1
   fi
+  
+  hide_progress
+  exit 1
 }

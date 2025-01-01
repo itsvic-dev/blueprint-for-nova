@@ -11,11 +11,13 @@ class CacheCommand extends Command
   protected $signature = 'bp:cache';
 
   /**
-   * SyncCommand constructor.
+   * CacheCommand constructor.
    */
   public function __construct(
     private BlueprintExtensionLibrary $blueprint,
-  ) { parent::__construct(); }
+  ) {
+    parent::__construct();
+  }
 
   /**
    * Handle execution of command.

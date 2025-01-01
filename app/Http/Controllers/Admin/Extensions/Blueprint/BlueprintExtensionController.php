@@ -2,17 +2,11 @@
 
 namespace Pterodactyl\Http\Controllers\Admin\Extensions\Blueprint;
 
-use Artisan;
-use Illuminate\View\View;
-use Illuminate\View\Factory as ViewFactory;
 use Pterodactyl\Http\Controllers\Controller;
-use Pterodactyl\BlueprintFramework\Services\PlaceholderService\BlueprintPlaceholderService;
-use Pterodactyl\BlueprintFramework\Services\ConfigService\BlueprintConfigService;
-use Pterodactyl\BlueprintFramework\Services\TelemetryService\BlueprintTelemetryService;
-use Pterodactyl\BlueprintFramework\Libraries\ExtensionLibrary\Admin\BlueprintAdminLibrary as BlueprintExtensionLibrary;
 use Pterodactyl\Contracts\Repository\SettingsRepositoryInterface;
 use Illuminate\Http\RedirectResponse;
 use Pterodactyl\Http\Requests\Admin\AdminFormRequest;
+use Database\Seeders\BlueprintSeeder;
 
 class BlueprintExtensionController extends Controller
 {
@@ -21,33 +15,8 @@ class BlueprintExtensionController extends Controller
    * BlueprintExtensionController constructor.
    */
   public function __construct(
-    private BlueprintTelemetryService $TelemetryService,
-    private BlueprintExtensionLibrary $ExtensionLibrary,
-    private BlueprintPlaceholderService $PlaceholderService,
-    private BlueprintConfigService $ConfigService,
-
-    private ViewFactory $view,
     private SettingsRepositoryInterface $settings,
-    ) {
-  }
-
-  /**
-   * Return the admin index view.
-   */
-  public function index(): View
-  {
-    $LatestVersion = $this->ConfigService->latest();
-    return $this->view->make(
-      'admin.extensions.blueprint.index', [
-        'ExtensionLibrary' => $this->ExtensionLibrary,
-        'TelemetryService' => $this->TelemetryService,
-        'PlaceholderService' => $this->PlaceholderService,
-        'ConfigService' => $this->ConfigService,
-        'LatestVersion' => $LatestVersion,
-        
-        'root' => "/admin/extensions/blueprint",
-      ]
-    );
+  ) {
   }
 
   /**
@@ -56,37 +25,43 @@ class BlueprintExtensionController extends Controller
    */
   public function update(BlueprintAdminFormRequest $request): RedirectResponse
   {
-    foreach ($request->normalize() as $key => $value) {
+    foreach ($request->validated() as $key => $value) {
       $this->settings->set('blueprint::' . $key, $value);
     }
 
-    // Confirm that the database value changes have been applied.
-    $this->ExtensionLibrary->notify("Your changes have been saved.");
-    // Sync database values with the bash side of Blueprint.
-    Artisan::call("bp:sync");
-    // Redirect back to the page the user was on.
-    return redirect()->route('admin.extensions.blueprint.index');
+    return redirect()->route('admin.extensions');
   }
 }
 
 class BlueprintAdminFormRequest extends AdminFormRequest
 {
-  // Form validation for settings on the Blueprint admin page.
-  // This is included in the controller directly as that
-  // simplifies my work.
-  public function rules(): array {
-    return [
-      'placeholder' => 'string',
-      'developer' => 'string|in:true,false',
-      'telemetry' => 'string|in:true,false',
-    ];
-  }
-
-  public function attributes(): array {
-    return [
-      'placeholder' => 'Placeholder Value',
-      'developer' => 'Developer Mode',
-      'telemetry' => 'Telemetry',
-    ];
+  public function rules(): array
+  {
+    // Get schema to determine types
+    $seeder = app(BlueprintSeeder::class);
+    $schema = $seeder->getSchema();
+    
+    $rules = [];
+    foreach ($schema['flags'] as $key => $config) {
+      $flagPath = "flags:{$key}";
+      
+      // Build validation rules based on type
+      switch ($config['type']) {
+        case 'boolean':
+          $rules[$flagPath] = 'boolean';
+          break;
+        case 'string':
+          $rules[$flagPath] = 'string|nullable';
+          break;
+        case 'number':
+          $rules[$flagPath] = 'numeric';
+          break;
+        case 'integer':
+          $rules[$flagPath] = 'integer';
+          break;
+      }
+    }
+    
+    return $rules;
   }
 }

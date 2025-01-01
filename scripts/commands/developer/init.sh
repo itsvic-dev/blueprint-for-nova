@@ -1,8 +1,7 @@
 #!/bin/bash
 
 Command() {
-  # Check for developer mode through the database library.
-  if ! dbValidate "blueprint.developerEnabled"; then PRINT FATAL "Developer mode is not enabled.";exit 2; fi
+  if ! is_developer; then PRINT FATAL "Developer mode is not enabled.";exit 2; fi
 
   # To prevent accidental wiping of your dev directory, you are unable to initialize another extension
   # until you wipe the contents of the .blueprint/dev directory.
@@ -121,7 +120,7 @@ Command() {
 
   tnum=${ASKTEMPLATE}
   PRINT INFO "Fetching templates.."
-  if [[ $(php artisan bp:latest) != "$VERSION" ]]; then PRINT WARNING "Active Blueprint version is not latest, you might run into compatibility issues."; fi
+  if [[ $(php artisan bp:version:latest) != "$VERSION" ]]; then PRINT WARNING "Active Blueprint version is not latest, you might run into compatibility issues."; fi
   cd .blueprint/tmp || cdhalt
   git clone "https://github.com/BlueprintFramework/templates.git"
   cd "${FOLDER}"/.blueprint || cdhalt
@@ -161,5 +160,4 @@ Command() {
   mkdir -p .blueprint/tmp
 
   PRINT SUCCESS "Extension files initialized and imported to '.blueprint/dev'."
-  sendTelemetry "INITIALIZE_DEVELOPMENT_EXTENSION" >> "$BLUEPRINT__DEBUG"
 }

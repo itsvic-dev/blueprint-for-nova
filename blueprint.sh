@@ -17,7 +17,7 @@
 
 # Defines the version Blueprint will display as the active one.
   VERSION="beta-2024-12"
-  BLUEPRINT_ENGINE="solstice"
+  BLUEPRINT_ENGINE="solstice-nova"
 
 # Default GitHub repository to use when upgrading Blueprint.
   REPOSITORY="itsvic-dev/blueprint-for-nova"

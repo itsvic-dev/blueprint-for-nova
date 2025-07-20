@@ -125,7 +125,7 @@ depend() {
   ! [ -x "$(command -v awk)" ] ||                            # awk
   ! [ -x "$(command -v tput)" ] ||                           # tput
   ! [ "$(ls "node_modules/"*"cross-env"* 2> /dev/null)" ] || # cross-env
-  ! [ "$(ls "node_modules/"*"webpack"* 2> /dev/null)"   ] || # webpack
+  ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)"   ] || # vite
   ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"     ] || # react
   [[ $missinglibs != "" ]]; then                             # internal
     DEPEND_MISSING=true

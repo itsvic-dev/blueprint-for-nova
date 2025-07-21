@@ -108,5 +108,7 @@ class Kernel extends HttpKernel
         'bindings' => SubstituteBindings::class,
         'recaptcha' => VerifyReCaptcha::class,
         'node.maintenance' => MaintenanceMiddleware::class,
+        'server-folder.access' => Middleware\Api\Client\ServerFolder\EnsureServerFolderAccess::class,
+        'server.access' => Middleware\Api\Client\Server\AuthenticateServerAccess::class,
     ];
 }

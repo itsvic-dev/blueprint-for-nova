@@ -425,7 +425,7 @@ Command() {
     if [[ $YARN == "y" ]]; then
       PRINT INFO "Rebuilding panel assets.."
       cd "$FOLDER" || cdhalt
-      yarn run build:production --progress
+      yarn build
     fi
 
     ((PROGRESS_NOW++))

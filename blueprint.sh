@@ -125,7 +125,7 @@ depend() {
   ! [ -x "$(command -v awk)" ] ||                            # awk
   ! [ -x "$(command -v tput)" ] ||                           # tput
   ! [ "$(ls "node_modules/"*"cross-env"* 2> /dev/null)" ] || # cross-env
-  ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)"   ] || # vite
+  ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)"      ] || # vite
   ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"     ] || # react
   [[ $missinglibs != "" ]]; then                             # internal
     DEPEND_MISSING=true
@@ -150,7 +150,7 @@ depend() {
     if ! [ -x "$(command -v sed)"                            ]; then PRINT FATAL "Required dependency \"sed\" is not installed or detected.";       fi
     if ! [ -x "$(command -v awk)"                            ]; then PRINT FATAL "Required dependency \"awk\" is not installed or detected.";       fi
     if ! [ -x "$(command -v tput)"                           ]; then PRINT FATAL "Required dependency \"tput\" is not installed or detected.";      fi
-    if ! [ "$(ls "node_modules/"*"webpack"* 2> /dev/null)"   ]; then PRINT FATAL "Required dependency \"webpack\" is not installed or detected.";   fi
+    if ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)"   ]   ; then PRINT FATAL "Required dependency \"vite\" is not installed or detected.";   fi
     if ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"     ]; then PRINT FATAL "Required dependency \"react\" is not installed or detected.";     fi
 
     if [[ $missinglibs == *"[parse_yaml]"*    ]]; then PRINT FATAL "Required internal dependency \"internal:parse_yaml\" is not installed or detected."; fi
@@ -327,7 +327,7 @@ if [[ $1 != "-bash" ]]; then
     PRINT INFO "Rebuilding panel assets.."
     hide_progress
     cd "$FOLDER" || cdhalt
-    yarn run build:production --progress
+    yarn build
 
     ((PROGRESS_NOW++))
 

@@ -1361,7 +1361,7 @@ Command() {
       PRINT INFO "Rebuilding panel assets.."
       hide_progress
       cd "$FOLDER" || cdhalt
-      yarn run build:production --progress
+      yarn build
     fi
 
     ((PROGRESS_NOW++))

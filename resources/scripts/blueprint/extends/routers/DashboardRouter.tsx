@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, Route } from 'react-router-dom';
 import { useStoreState } from 'easy-peasy';
-import { PuzzlePieceIcon } from '@heroicons/react/24/solid';
+import { PuzzlePieceIcon } from 'heroicons-v2/24/solid';
 
 import blueprintRoutes from './routes';
 

@@ -11,7 +11,6 @@ Command() {
   PRINT INFO "Start packaging extension.."
 
   cd .blueprint || cdhalt
-  rm dev/.gitkeep 2>> "$BLUEPRINT__DEBUG"
 
   eval "$(parse_yaml dev/conf.yml conf_)"; identifier="${conf_info_identifier}"
 
@@ -54,7 +53,13 @@ Command() {
     echo -e "\e[0m\x1b[0m\033[0m"
   fi
 
-  zip -r extension.zip ./*
+  zip -r \
+    extension.zip \
+    ./* \
+    -x ".dist/*" \
+    -x ".git/*" \
+    -x ".gitkeep"
+
   cd "${FOLDER}" || cdhalt
   cp .blueprint/tmp/extension.zip "${identifier}.blueprint"
   rm -R .blueprint/tmp

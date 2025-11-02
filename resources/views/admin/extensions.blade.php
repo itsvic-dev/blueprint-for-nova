@@ -108,25 +108,26 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
       </div>
 
       <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 text-center" style="padding-left: 0px; padding-right: 17px;">
-        <a href="{{ route('admin.nova') }}">
-          <button class="btn extension-btn" style="width:100%;margin-bottom:17px;">
-            <div class="extension-btn-overlay"></div>
-            <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image2"/>
-            <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image"/>
-            <p class="extension-btn-text">Nova</p>
-            <p class="extension-btn-version">
-              <span style="padding-right:5px">
-                <i class="bi bi-gear-fill"></i>
-                <b>system</b>
-              </span>
-              {{ $NovaVersionService->getCurrentVersion() }}
-            </p>
-            <i class="bi bi-arrow-right-short" style="font-size: 34px;position: absolute;top: 15px;right: 30px;"></i>
-          </button>
+        <a class="btn extension-btn" style="width:100%;margin-bottom:17px;" href="/admin/nova">
+          <div class="extension-btn-overlay"></div>
+          <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image2"/>
+          <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image"/>
+          <p class="extension-btn-text">Nova</p>
+          <p class="extension-btn-version">
+            <span style="padding-right:5px">
+              <i class="bi bi-gear-fill"></i>
+              <b>system</b>
+            </span>
+            {{ $NovaVersionService->getCurrentVersion() }}
+          </p>
+          <i class="bi bi-three-dots-vertical" style="font-size: 20px;position: absolute;top: 25px;right: 37px;"></i>
         </a>
       </div>
 
-      @foreach($blueprint->extensions() as $extension)
+      @foreach($blueprint->extensionsConfigs() as $extension)
+        <?php
+          $extension = $extension['info']; 
+        ?>
         @include("blueprint.admin.entry", [
           'EXTENSION_ID' => $extension['identifier'],
           'EXTENSION_NAME' => $extension['name'],
@@ -165,6 +166,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
     </div>
 
 
+
     <!-- Blueprint configuration -->
     <div class="modal fade" id="blueprintConfigModal" tabindex="-1" role="dialog">
       <div class="modal-dialog" role="document">
@@ -194,33 +196,36 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
                         $schema = $seeder->getSchema();
                         $flagConfig = $schema['flags'][$flagKey] ?? null;
                         $flagType = $flagConfig['type'] ?? 'string';
+                        $flagHidden = $flagConfig['hidden'] ?? false;
                       @endphp
-                      <tr data-flag-row data-flag-name="{{ $key }}" data-flag-type="{{ $flagType }}" data-default-value="{{ $defaults[$key] }}">
-                        <td>
-                          <code>
-                            {{ $flagKey }}
-                          </code>
-                        </td>
-                        <td>
-                          @switch($flagType)
-                            @case('boolean')
-                              <select class="form-control" name="{{ $key }}" style="border-radius:6px">
-                                <option value="1" {{ $value ? 'selected' : '' }}>true</option>
-                                <option value="0" {{ !$value ? 'selected' : '' }}>false</option>
-                              </select>
-                              @break
-                            @case('number')
-                              <input type="number" class="form-control" name="{{ $key }}" value="{{ $value }}" step="any" style="border-radius:6px">
-                              @break
-                            @case('integer')
-                              <input type="number" class="form-control" name="{{ $key }}" value="{{ $value }}" step="1" style="border-radius:6px">
-                              @break
+                      @if($flagHidden != true)
+                        <tr data-flag-row data-flag-name="{{ $key }}" data-flag-type="{{ $flagType }}" data-default-value="{{ $defaults[$key] }}">
+                          <td>
+                            <code>
+                              {{ $flagKey }}
+                            </code>
+                          </td>
+                          <td>
+                            @switch($flagType)
+                              @case('boolean')
+                                <select class="form-control" name="{{ $key }}" style="border-radius:6px">
+                                  <option value="1" {{ $value ? 'selected' : '' }}>true</option>
+                                  <option value="0" {{ !$value ? 'selected' : '' }}>false</option>
+                                </select>
+                                @break
+                              @case('number')
+                                <input type="number" class="form-control" name="{{ $key }}" value="{{ $value }}" step="any" style="border-radius:6px">
+                                @break
+                              @case('integer')
+                                <input type="number" class="form-control" name="{{ $key }}" value="{{ $value }}" step="1" style="border-radius:6px">
+                                @break
                             
-                            @default
-                              <input type="text" class="form-control" name="{{ $key }}" value="{{ $value }}" style="border-radius:6px">
-                          @endswitch
-                        </td>
-                      </tr>
+                              @default
+                                <input type="text" class="form-control" name="{{ $key }}" value="{{ $value }}" style="border-radius:6px">
+                            @endswitch
+                          </td>
+                        </tr>
+                      @endif
                     @endif
                   @endforeach
                 </tbody>

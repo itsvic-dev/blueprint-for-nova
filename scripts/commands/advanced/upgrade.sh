@@ -23,7 +23,7 @@ Command() {
   if [[ ${YN} != "continue" ]]; then PRINT INFO "Upgrade cancelled.";exit 1;fi
   YN=""
 
-  INSTALL_STEPS=11
+  INSTALL_STEPS=14
   export PROGRESS_TOTAL="$((10 + "$INSTALL_STEPS"))"
   export PROGRESS_NOW=0
 
@@ -61,7 +61,11 @@ Command() {
     fi
     # download release
     hide_progress
-    git clone "$REMOTE_REPOSITORY" main
+    if [[ $3 == "" ]]; then
+      git clone "$REMOTE_REPOSITORY" main
+    else
+      git clone "$REMOTE_REPOSITORY" main --branch "$3"
+    fi
   else
     # download latest release
     hide_progress
@@ -123,12 +127,14 @@ Command() {
   
   ((PROGRESS_NOW++))
 
-  chmod +x blueprint.sh
+  # Deprecated, kept in for backwards compatibility
   sed -i -E \
     -e "s|OWNERSHIP=\"www-data:www-data\" #;|OWNERSHIP=\"$OWNERSHIP\" #;|g" \
     -e "s|WEBUSER=\"www-data\" #;|WEBUSER=\"$WEBUSER\" #;|g" \
     -e "s|USERSHELL=\"/bin/bash\" #;|USERSHELL=\"$USERSHELL\" #;|g" \
     "$FOLDER/blueprint.sh"
+
+  chmod +x blueprint.sh
   mv "$FOLDER/blueprint" "$FOLDER/.blueprint"
   hide_progress
   BLUEPRINT_ENVIRONMENT="upgrade" PROGRESS_NOW="$PROGRESS_NOW" PROGRESS_TOTAL="$PROGRESS_TOTAL" bash blueprint.sh

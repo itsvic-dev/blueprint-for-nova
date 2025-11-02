@@ -33,7 +33,7 @@ Command() {
 
   ask_name() {
     INPUT_DEFAULT="SpaceInvaders"
-    PRINT INPUT "Name [$INPUT_DEFAULT]:"
+    PRINT INPUT "Name (info.name) [$INPUT_DEFAULT]:"
     read -r ASKNAME
     REDO_NAME=false
 
@@ -48,7 +48,7 @@ Command() {
 
   ask_identifier() {
     INPUT_DEFAULT="spaceinvaders"
-    PRINT INPUT "Identifier [$INPUT_DEFAULT]:"
+    PRINT INPUT "Identifier (info.identifier) [$INPUT_DEFAULT]:"
     read -r ASKIDENTIFIER
     REDO_IDENTIFIER=false
 
@@ -68,7 +68,7 @@ Command() {
 
   ask_description() {
     INPUT_DEFAULT="Shoot down space aliens!"
-    PRINT INPUT "Description [$INPUT_DEFAULT]:"
+    PRINT INPUT "Description (info.description) [$INPUT_DEFAULT]:"
     read -r ASKDESCRIPTION
     REDO_DESCRIPTION=false
 
@@ -83,7 +83,7 @@ Command() {
 
   ask_version() {
     INPUT_DEFAULT="1.0"
-    PRINT INPUT "Version [$INPUT_DEFAULT]:"
+    PRINT INPUT "Version (info.version) [$INPUT_DEFAULT]:"
     read -r ASKVERSION
     REDO_VERSION=false
 
@@ -98,7 +98,7 @@ Command() {
 
   ask_author() {
     INPUT_DEFAULT="byte"
-    PRINT INPUT "Author [$INPUT_DEFAULT]:"
+    PRINT INPUT "Author (info.author) [$INPUT_DEFAULT]:"
     read -r ASKAUTHOR
     REDO_AUTHOR=false
 
@@ -151,6 +151,16 @@ Command() {
 
   # Return files to folder.
   cp -R .blueprint/tmp/init/* .blueprint/dev/
+
+  # Initialize dist directory.
+  # NOTE: Could maybe make this a function so we don't have to keep dist.sh and init.sh in sync.
+  PRINT INFO "Initializing .dist directory.."
+  mkdir .blueprint/dev/.dist
+  ln -s -r .blueprint/dist/types .blueprint/dev/.dist/types
+
+  # Initialize types.
+  PRINT INFO "Generating types.."
+  node scripts/helpers/generate-types.js 2> /dev/null
 
   # Remove tmp files.
   PRINT INFO "Cleaning up build files.."

@@ -12,7 +12,7 @@
 BLUEPRINT_ENGINE="solstice-nova"
 REPOSITORY="itsvic-dev/blueprint-for-nova"
 REPOSITORY_BRANCH="main"
-VERSION="rolling" #;
+VERSION="beta-2026-01" #;
 
 FOLDER=$(realpath "$(dirname "$0" 2> /dev/null)" 2> /dev/null) || FOLDER="$BLUEPRINT__FOLDER"
 OWNERSHIP="www-data:www-data" #;

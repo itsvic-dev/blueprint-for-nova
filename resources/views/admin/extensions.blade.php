@@ -41,7 +41,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
           <span class="text-bold" style="color: #f9a040;">
           This instance is running a development-preview of Blueprint.
           </span>
-          You may run into bugs, extension incompatibilities and more. If you run into any issues, please <a href="https://github.com/blueprintframework/framework/issues">let us know</a>.
+          You may run into bugs, extension incompatibilities and more. If you run into any issues, please <a href="https://github.com/itsvic-dev/Nova/issues">let us know</a>.
         </div>
       </div>
     @endif

@@ -1144,14 +1144,21 @@ InstallExtension() {
     PRINT INFO "Cloning and linking admin css.."
     sed -i "s~@import url(/assets/extensions/$identifier/admin.style.css);~~g" ".blueprint/extensions/blueprint/assets/admin.extensions.css"
     echo -e "@import url(/assets/extensions/$identifier/admin.style.css);" >> ".blueprint/extensions/blueprint/assets/admin.extensions.css"
+
     cp ".blueprint/tmp/$n/$admin_css" ".blueprint/extensions/$identifier/assets/admin.style.css"
   fi
+
   if [[ $dashboard_css != "" ]]; then
     PRINT INFO "Cloning and linking dashboard css.."
     YARN="y"
+
     sed -i "s~@import url(./imported/$identifier.css);~~g" "resources/scripts/blueprint/css/extensions.css"
-    echo -e "@import url(./imported/$identifier.css);" >> "resources/scripts/blueprint/css/extensions.css"
-    cp ".blueprint/tmp/$n/$dashboard_css" "resources/scripts/blueprint/css/imported/$identifier.css"
+    echo -e -n "@import url(./imported/$identifier.css);" >> "resources/scripts/blueprint/css/extensions.css"
+
+    cp ".blueprint/tmp/$n/$dashboard_css" ".blueprint/extensions/$identifier/dashboard.css"
+    if [[ $DUPLICATE != "y" ]]; then
+      ln -s -r -T ".blueprint/extensions/$identifier/dashboard.css" "$FOLDER/resources/scripts/blueprint/css/imported/$identifier.css"
+    fi
   fi
 
   ((PROGRESS_NOW++))

@@ -10,7 +10,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
 
 @section('content-header')
   @if($is_installed)
-    @if($PlaceholderService->version() != $latestBlueprintVersion)
+    @if(($PlaceholderService->version() != $latestBlueprintVersion) && ($PlaceholderService->version() != "rolling") && $latestBlueprintVersion != "unknown")
       <div class="blueprint-statusbar blueprint-statusbar-danger">
         <div style="margin-right: 14px;">
           <i class="bi bi-exclamation-triangle-fill" style="font-size: 24px; color: #f52e98"></i>
@@ -32,6 +32,34 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
       </div>
     @endif
 
+    @if($PlaceholderService->version() == "rolling")
+      <div class="blueprint-statusbar blueprint-statusbar-warning">
+        <div style="margin-right: 14px;">
+          <i class="bi bi-bug-fill" style="font-size: 24px; color: #f5952e"></i>
+        </div>
+        <div>
+          <span class="text-bold" style="color: #f9a040;">
+          This instance is running a development-preview of Blueprint.
+          </span>
+          You may run into bugs, extension incompatibilities and more. If you run into any issues, please <a href="https://github.com/blueprintframework/framework/issues">let us know</a>.
+        </div>
+      </div>
+    @endif
+
+    @if($latestBlueprintVersion == "unknown" && $PlaceholderService->version() != "rolling")
+      <div class="blueprint-statusbar blueprint-statusbar-warning">
+        <div style="margin-right: 14px;">
+          <i class="bi bi-wifi-off" style="font-size: 24px; color: #f5952e"></i>
+        </div>
+        <div>
+          <span class="text-bold" style="color: #f9a040;">
+          Could not fetch version info.
+          </span>
+          Blueprint failed to fetch the latest release name from the API.
+        </div>
+      </div>
+    @endif
+
     <div class="blueprint-page-header">
       <div class="row">
         <div class="col-lg-8 col-md-9 col-sm-9 col-xs-12" style="padding-top: 3px; padding-bottom: 3px;">
@@ -39,7 +67,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
             <span class="text-bold h4">Blueprint</span>
           </p>
           <span>
-            Powerful, fast and developer-friendly extension framework for Pterodactyl. Utilize extension APIs, inject HTML, modify stylesheets, package extensions and so much more. 
+            Pterodactyl's favorite modding community. Develop, collaborate and install extensions with the extension platform that puts you first. Pterodactyl themes, plugin installers, player managers, admin tools and much more. There's a Blueprint extension for that.
           </span>
         </div>
         <div class="col-lg-4 col-md-3 col-sm-3 col-xs-12" style="padding-top: 3px; padding-bottom: 3px;">
@@ -67,6 +95,13 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
         to left,
         #1f2933 50%,
         #5c143b 100%
+      );
+    }
+    .blueprint-statusbar.blueprint-statusbar-warning {
+      background-image: linear-gradient(
+        to left,
+        #1f2933 60%,
+        #a43e006e 100%
       );
     }
 
@@ -108,7 +143,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
       </div>
 
       <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 text-center" style="padding-left: 0px; padding-right: 17px;">
-        <a class="btn extension-btn" style="width:100%;margin-bottom:17px;" href="/admin/nova">
+        <button class="btn extension-btn" style="width:100%;margin-bottom:17px;" data-toggle="modal" data-target="#blueprintConfigModal">
           <div class="extension-btn-overlay"></div>
           <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image2"/>
           <img src="/nova/icon-128.png" alt="logo" class="extension-btn-image"/>
@@ -121,18 +156,18 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
             {{ $NovaVersionService->getCurrentVersion() }}
           </p>
           <i class="bi bi-three-dots-vertical" style="font-size: 20px;position: absolute;top: 25px;right: 37px;"></i>
-        </a>
+        </button>
       </div>
 
       @foreach($blueprint->extensionsConfigs() as $extension)
         <?php
-          $extension = $extension['info']; 
+          $extension = $extension['info'];
         ?>
         @include("blueprint.admin.entry", [
           'EXTENSION_ID' => $extension['identifier'],
           'EXTENSION_NAME' => $extension['name'],
           'EXTENSION_VERSION' => $extension['version'],
-          'EXTENSION_ICON' => !empty($extension['icon']) 
+          'EXTENSION_ICON' => !empty($extension['icon'])
             ? '/assets/extensions/'.$extension['identifier'].'/icon.'.pathinfo($extension['icon'], PATHINFO_EXTENSION)
             : '/assets/extensions/'.$extension['identifier'].'/icon.jpg'
         ])
@@ -219,7 +254,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
                               @case('integer')
                                 <input type="number" class="form-control" name="{{ $key }}" value="{{ $value }}" step="1" style="border-radius:6px">
                                 @break
-                            
+
                               @default
                                 <input type="text" class="form-control" name="{{ $key }}" value="{{ $value }}" style="border-radius:6px">
                             @endswitch
@@ -250,7 +285,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
     </div>
   </div>
 
-  @else 
+  @else
     <center>
       <div style="padding-top: 50px;">
         <span style="font-size: 36px">
@@ -264,8 +299,12 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
         <span>
           Blueprint is currently only partially installed.<br>
           Finish the
-          <a href="https://blueprint.zip/docs/?page=getting-started/Installation">installation guide</a>,
+          <a href="https://blueprint.zip/guides/admin/install">installation guide</a>,
           then return to this page afterwards.
+        </span>
+        <br style="margin-bottom: 12px;">
+        <span>
+          You may be able to fix this issue by running <code>blueprint -upgrade</code>.
         </span>
       </div>
     </center>
@@ -273,7 +312,7 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
 
   <style>
     /* style content */
-    a:has(button.btn.extension-btn) { 
+    a:has(button.btn.extension-btn) {
       height: 96px;
       display: inline-block;
       width: 100%;
@@ -301,22 +340,22 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const flagRows = document.querySelectorAll('[data-flag-row]');
-      
+
       const createResetButton = (row, input) => {
         const button = document.createElement('button');
         button.className = 'blueprint-button-link reset-flag';
         button.style.padding = '0';
         button.style.marginLeft = '8px';
         button.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
-        
+
         const defaultValue = getDefaultValue(row);
-        
+
         button.addEventListener('click', (e) => {
           e.preventDefault();
           input.value = defaultValue;
           input.dispatchEvent(new Event('change'));
         });
-        
+
         return button;
       };
 
@@ -327,16 +366,16 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
         if (flagType === 'boolean' && (!defaultValue || defaultValue === '')) {
           return '0';
         }
-        
+
         return defaultValue;
       };
 
       const compareValues = (input, defaultValue) => {
         const flagType = input.closest('[data-flag-row]').dataset.flagType;
         const currentValue = input.value;
-        
-        const effectiveDefault = flagType === 'boolean' && (!defaultValue || defaultValue === '') 
-          ? '0' 
+
+        const effectiveDefault = flagType === 'boolean' && (!defaultValue || defaultValue === '')
+          ? '0'
           : defaultValue;
 
         switch (flagType) {
@@ -349,27 +388,27 @@ $is_installed=(($PlaceholderService->installed() != "NOTINSTALLED") && ($Placeho
             return String(currentValue) !== String(effectiveDefault);
         }
       };
-      
+
       const handleValueChange = (row, input) => {
         const defaultValue = getDefaultValue(row);
-        
+
         const existingButton = row.querySelector('td .reset-flag');
         if (existingButton) {
           existingButton.remove();
         }
-        
+
         if (compareValues(input, defaultValue)) {
           const resetButton = createResetButton(row, input);
           row.querySelector('td').appendChild(resetButton);
         }
       };
-      
+
       flagRows.forEach(row => {
         const input = row.querySelector('select, input');
         if (!input) return; // Skip if no input found
-        
+
         handleValueChange(row, input);
-        
+
         input.addEventListener('change', () => {
           handleValueChange(row, input);
         });

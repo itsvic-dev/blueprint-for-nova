@@ -49,6 +49,10 @@ class Kernel extends HttpKernel
         ConvertEmptyStringsToNull::class,
     ];
 
+    protected $middlewarePriority = [
+        SubstituteClientBindings::class,
+    ];
+
     /**
      * The application's route middleware groups.
      */

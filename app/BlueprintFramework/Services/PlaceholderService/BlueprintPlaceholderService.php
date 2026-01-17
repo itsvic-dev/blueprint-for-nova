@@ -6,7 +6,11 @@ class BlueprintPlaceholderService
 {
   public function version(): string
   {
-    return "::v";
+    $ver = "::v";
+    if ($ver == '::'.'v') {
+      return 'unknown';
+    }
+    return $ver;
   }
   public function folder(): string
   {
@@ -18,6 +22,6 @@ class BlueprintPlaceholderService
   }
   public function api_url(): string
   {
-    return "https://api.blueprintframe.work";
+    return "https://blueprint.zip";
   }
 }

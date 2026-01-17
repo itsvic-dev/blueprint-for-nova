@@ -1,0 +1,58 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  shellcheck:
+    name: Run ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+
+  build-frontend-only:
+    name: Build frontend only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Pterodactyl stable
+        uses: actions/checkout@v4
+        with:
+          repository: pterodactyl/panel
+          ref: v1.12.0
+          path: panel
+
+      - name: Setup Node and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: panel/yarn.lock
+
+      - name: Install Pterodactyl node dependencies
+        working-directory: panel
+        run: yarn install
+
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          path: blueprint
+
+      - name: Overwrite Pterodactyl files with latest commit
+        run: cp -r blueprint/* panel/
+
+      - name: Reinstall node dependencies
+        working-directory: panel
+        run: yarn install
+
+      - name: Build production frontend
+        working-directory: panel
+        run: yarn run build:production
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider

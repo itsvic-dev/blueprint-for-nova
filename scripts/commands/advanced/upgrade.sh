@@ -23,6 +23,8 @@ Command() {
   export remote_branch
   export fetched_version
 
+  local update_fail
+
   if [[ -d '.update' ]]; then
     PRINT WARNING ".update already exists! Replacing it."
     rm -rf .update
@@ -66,7 +68,7 @@ Command() {
           PRINT FATAL "Expected a git branch at argument 3, was empty. Exiting.."
           cleanup 1
         fi
-        if [[ $remote_branch != *.git ]]; then
+        if [[ $remote_repo != *.git ]]; then
           PRINT FATAL "Expected a git repository at argument 2, was invalid. (Did you forget to prepend your argument with .git?) Exiting.."
           cleanup 1
         fi
@@ -86,7 +88,7 @@ Command() {
 
       # Blueprint default repository
       "")
-        PRINT INFO "No git repository provided, defaulting to '$REPOSITORY' (repo) and '$REPOSITORY_BRANCH' (branch)!"
+        PRINT WARNING "No git repository provided, defaulting to '$REPOSITORY' (repo) and '$REPOSITORY_BRANCH' (branch)!"
         PRINT DEBUG "setting remote_repo to 'https://github.com/$REPOSITORY.git'"
         remote_repo="https://github.com/$REPOSITORY.git"
         remote_branch="$REPOSITORY_BRANCH"
@@ -180,6 +182,11 @@ Command() {
   cleanup
 
   # Tell user that update has finished
+  if [[ $update_fail == "true" ]]; then
+    PRINT FATAL "Update failed, please resolve errors above and try again"
+    hide_progress
+    exit 1
+  fi
   PRINT SUCCESS "Update finished!"
   hide_progress
   exit 0

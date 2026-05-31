@@ -1362,6 +1362,10 @@ Command() {
   if [[ $1 == "" ]]; then PRINT FATAL "Expected at least 1 argument but got 0.";exit 2;fi
   if [[ ( $1 == "./"* ) || ( $1 == "../"* ) || ( $1 == "/"* ) ]]; then PRINT FATAL "Cannot import extensions from external paths.";exit 2;fi
 
+  lock_wait
+  lock_create
+  trap lock_remove SIGINT SIGTERM
+
   if [[ $DeveloperWatch == "" ]]; then
     export DeveloperWatch="false"
 
@@ -1451,6 +1455,8 @@ Command() {
     fi
 
     ((PROGRESS_NOW++))
+
+    lock_remove
 
     if [[ $BuiltExtensions == "" ]]; then
       CorrectPhrasing="have"

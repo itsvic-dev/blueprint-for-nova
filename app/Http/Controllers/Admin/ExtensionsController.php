@@ -2,15 +2,16 @@
 
 namespace Pterodactyl\Http\Controllers\Admin;
 
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\View;
+use Database\Seeders\BlueprintSeeder;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\Factory as ViewFactory;
 use Pterodactyl\Http\Controllers\Controller;
+use Pterodactyl\Models\ExtensionCachedMetadata;
 use Pterodactyl\Services\Helpers\NovaVersionService;
 use Pterodactyl\Services\Helpers\SoftwareVersionService;
 use Pterodactyl\BlueprintFramework\Services\PlaceholderService\BlueprintPlaceholderService;
 use Pterodactyl\BlueprintFramework\Libraries\ExtensionLibrary\Admin\BlueprintAdminLibrary as BlueprintExtensionLibrary;
-use Database\Seeders\BlueprintSeeder;
 
 class ExtensionsController extends Controller
 {
@@ -34,7 +35,7 @@ class ExtensionsController extends Controller
   {
     $configuration = $this->blueprint->dbGetMany('blueprint');
     $defaults = [];
-    
+
     if (($configuration['internal:version:latest'] ?? false) === false) {
       Artisan::call('bp:version:cache');
       $latestBlueprintVersion = $this->blueprint->dbGet('blueprint', 'internal:version:latest');
@@ -49,6 +50,15 @@ class ExtensionsController extends Controller
       }
     }
 
+    $metadata = [];
+    if($this->blueprint->dbGet('blueprint', 'flags:remote_metadata')) {
+      $metadata = ExtensionCachedMetadata::whereIn('identifier', $this->blueprint->extensions())
+        ->get()
+        ->keyBy('identifier')
+        ->map(fn($m) => $m->metadata)
+        ->toArray();
+    }
+
     return $this->view->make('admin.extensions', [
       'blueprint' => $this->blueprint,
       'PlaceholderService' => $this->PlaceholderService,
@@ -57,7 +67,8 @@ class ExtensionsController extends Controller
       'latestBlueprintVersion' => $latestBlueprintVersion,
       'defaults' => $defaults,
       'seeder' => $this->seeder,
-      
+      'metadata' => $metadata,
+
       'version' => $this->version,
       'root' => "/admin/extensions",
     ]);

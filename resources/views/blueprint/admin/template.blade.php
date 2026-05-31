@@ -13,7 +13,30 @@
     </a>
   @endif
 
-  <h1 ext-title>{{ $EXTENSION_NAME }}<tag mg-left blue>{{ $EXTENSION_VERSION }}</tag></h1>
+  <h1 ext-title style="margin-top: 0px !important;">
+    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ $EXTENSION_NAME }}</span>
+    <tag mg-left>
+      {{ $EXTENSION_VERSION }}
+    </tag>
+
+    <?php
+      $latest = true;
+      $meta = $blueprint->extensionMetadata($EXTENSION_ID);
+      if(isset($meta)) {
+        if(
+          $meta['latest_version'] != $EXTENSION_VERSION
+          && $meta['local_version'] == $EXTENSION_VERSION
+        ) {
+          $latest = false;
+        }
+      }
+    ?>
+    @if(!$latest)
+    <tag mg-left green style="font-weight: 700">
+      <i class="bi bi-caret-up-fill blueprint-extension-title-tag-icon"></i> {{ $meta['latest_version'] }}
+    </tag>
+    @endif
+  </h1>
 @endsection
 
 @section("extension.description")
@@ -22,14 +45,14 @@
 
 @section("extension.config")
   <?php
-    use Pterodactyl\Models\Egg;
-    $eggs = Egg::all();
+  use Pterodactyl\Models\Egg;
+  $eggs = Egg::all();
   ?>
   <div class="modal fade" id="extensionConfigModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
       <div class="modal-content" style="background-color:transparent">
         <form action="/admin/extensions/blueprint/config" method="POST" autocomplete="off">
-          <div class="modal-header" style="border-color:transparent; border-radius:7px; margin-bottom: 15px">
+          <div class="modal-header" style="border-color:transparent; border-radius:12px 12px 5px 5px; margin-bottom: 8px">
             <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color:#fff;box-shadow:none"><span aria-hidden="true"><i class="bi bi-x"></i></span></button>
             <h3 class="modal-title">
               <img src="{{ $EXTENSION_ICON }}" alt="logo" height="34" width="34" class="pull-left" style="border-radius:3px;margin-right:10px"/>
@@ -37,7 +60,7 @@
             </h3>
           </div>
 
-          <div class="modal-body" style="border-color:transparent; border-radius:7px; margin-bottom: 15px">
+          <div class="modal-body" style="border-color:transparent; border-radius:12px 12px 5px 5px; margin-bottom: 8px">
             <h4><b>Permissions</b></h4>
             <p class="text-muted text-left">Configure what elements this extension can or can't edit/extend on your Pterodactyl panel.</p><br>
 
@@ -74,7 +97,7 @@
             </div>
           </div>
 
-          <div class="modal-footer" style="border-color:transparent; border-radius:7px">
+          <div class="modal-footer" style="border-color:transparent; border-radius:5px 5px 12px 12px">
             {{ csrf_field() }}
             <input type="hidden" name="_identifier" value="{{ $EXTENSION_ID }}">
             <input type="hidden" name="_method" value="PATCH">

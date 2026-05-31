@@ -18,6 +18,7 @@ FOLDER=$(realpath "$(dirname "$0" 2> /dev/null)" 2> /dev/null) || FOLDER="$BLUEP
 OWNERSHIP="www-data:www-data" #;
 WEBUSER="www-data" #;
 USERSHELL="/bin/bash" #;
+SHORTCUT_DIR="/usr/local/bin"
 
 # Check if the script is being sourced - and if so - load bash autocompletion.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
@@ -42,7 +43,7 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
       -export) opts="expose" ;;
       -upgrade) opts="remote" ;;
 
-      *) opts="-install -add -remove -query -init -build -export -wipe -version -help -info -debug -upgrade -rerun-install" ;;
+      *) opts="-install -add -remove -query -init -build -export -wipe -version -help -info -debug -upgrade -unlock -rerun-install -dist" ;;
     esac
 
     if [[ ${cur} == * ]]; then
@@ -100,11 +101,12 @@ source scripts/libraries/parse_yaml.sh    || missinglibs+="[parse_yaml]"
 source scripts/libraries/grabenv.sh       || missinglibs+="[grabenv]"
 source scripts/libraries/logFormat.sh     || missinglibs+="[logFormat]"
 source scripts/libraries/misc.sh          || missinglibs+="[misc]"
+source scripts/libraries/lock.sh          || missinglibs+="[lock]"
 
 
 cdhalt() { PRINT FATAL "Attempted navigation into nonexistent directory, halting process."; exit 1; }
 depend() {
-  # Make sure Node.js is version 20 or higher.
+  # Make sure Node.js is version 22 or higher.
   nodeMajor=$(node -v | awk -F. '{print $1}' | sed 's/[^0-9]*//g')
 
   # Check for required (both internal and external) dependencies.
@@ -121,7 +123,7 @@ depend() {
   ! [ -x "$(command -v tput)" ] ||                                                # tput
   ! [ -x "$(command -v node)" ] ||                                                # node
   { ! [ -x "$(command -v inotifywait)" ] && [[ "$DeveloperWatch" == true ]]; } || # inotify-tools (devdep)
-  [[ $nodeMajor -lt 17 ]] ||                                                      # node version
+  [[ $nodeMajor -lt 22 ]] ||                                                      # node version
   ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)" ] ||                           # vite
   ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)" ] ||                          # react
   [[ $missinglibs != "" ]]; then                                                  # internal
@@ -132,8 +134,8 @@ depend() {
   if [[ $DEPEND_MISSING == true ]]; then
     PRINT FATAL "Some framework dependencies couldn't be found or have issues. This is usually NOT a bug, do not report it as such."
 
-    if [[ $nodeMajor -lt 20 ]]; then
-      PRINT FATAL "Unsupported dependency \"node\" <20.x. (Requires >20.x)"
+    if [[ $nodeMajor -lt 22 ]]; then
+      PRINT FATAL "Unsupported dependency \"node\" <22.x. (Requires >22.x)"
     fi
 
     if ! [ -x "$(command -v unzip)"                        ]; then PRINT FATAL "Missing dependency \"unzip\".";   fi
@@ -147,8 +149,8 @@ depend() {
     if ! [ -x "$(command -v sed)"                          ]; then PRINT FATAL "Missing dependency \"sed\".";     fi
     if ! [ -x "$(command -v awk)"                          ]; then PRINT FATAL "Missing dependency \"awk\".";     fi
     if ! [ -x "$(command -v tput)"                         ]; then PRINT FATAL "Missing dependency \"tput\".";    fi
-    if ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)"    ]; then PRINT FATAL "Missing dependency \"vite\".";    fi
-    if ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"   ]; then PRINT FATAL "Missing dependency \"react\".";   fi
+    if ! [ "$(ls "node_modules/"*"vite"* 2> /dev/null)"    ]; then PRINT FATAL "Missing dependency \"vite\". Forgot to run 'yarn install'?"; fi
+    if ! [ "$(ls "node_modules/"*"react"* 2> /dev/null)"   ]; then PRINT FATAL "Missing dependency \"react\". Forgot to run 'yarn install'?"; fi
 
     if ! [ -x "$(command -v inotifywait)" ] && [[ "$DeveloperWatch" == true ]]; then
       PRINT FATAL "Developer dependency \"inotify-tools\" is not installed or detected."
@@ -158,6 +160,7 @@ depend() {
     if [[ $missinglibs == *"[grabEnv]"*       ]]; then PRINT FATAL "Missing internal dependency \"internal:grabEnv\".";    fi
     if [[ $missinglibs == *"[logFormat]"*     ]]; then PRINT FATAL "Missing internal dependency \"internal:logFormat\".";  fi
     if [[ $missinglibs == *"[misc]"*          ]]; then PRINT FATAL "Missing internal dependency \"internal:misc\".";       fi
+    if [[ $missinglibs == *"[lock]"*          ]]; then PRINT FATAL "Missing internal dependency \"internal:lock\".";       fi
 
     exit 1
   fi
@@ -208,28 +211,32 @@ assignflags() {
   fi
 }
 
-# Adds the "blueprint" command to the /usr/local/bin directory and configures the correct permissions for it.
+# Adds the "blueprint" command to the $SHORTCUT_DIR and configures the correct permissions for it.
 placeshortcut() {
-  PRINT INFO "Placing Blueprint command shortcut.."
+  if [[ $SHORTCUT_DIR != "" ]]; then
+    PRINT INFO "Placing Blueprint command shortcut.."
 
-  rm -f scripts/helpers/blueprint.bak
-  cp "scripts/helpers/blueprint" "scripts/helpers/blueprint.bak"
-  sed -i "s~BLUEPRINT_FOLDER_HERE~$FOLDER~g" "scripts/helpers/blueprint.bak"
+    rm -f scripts/helpers/blueprint.bak
+    cp "scripts/helpers/blueprint" "scripts/helpers/blueprint.bak"
+    sed -i "s~BLUEPRINT_FOLDER_HERE~$FOLDER~g" "scripts/helpers/blueprint.bak"
 
-  rm -f /usr/local/bin/blueprint
-  mv scripts/helpers/blueprint.bak /usr/local/bin/blueprint
+    rm -f "$SHORTCUT_DIR/blueprint"
+    mv scripts/helpers/blueprint.bak "$SHORTCUT_DIR/blueprint"
 
-  {
-    chmod 755 \
-      "$FOLDER/blueprint.sh" \
-      /usr/local/bin/blueprint
-  } >> "$BLUEPRINT__DEBUG"
+    {
+      chmod 755 \
+        "$FOLDER/blueprint.sh" \
+        "$SHORTCUT_DIR/blueprint"
+    } >> "$BLUEPRINT__DEBUG"
+  else
+    PRINT DEBUG "Shortcut not placed as \$SHORTCUT_DIR is empty"
+  fi
 }
 if ! [ -x "$(command -v blueprint)" ]; then placeshortcut; fi
 
 
 if [[ $1 != "-bash" ]]; then
-  if dbValidate "blueprint.setupFinished"; then
+  if [ -f "$FOLDER/.blueprint/extensions/blueprint/private/db/is_installed" ]; then
     PRINT FATAL "Blueprint is already installed, use the 'blueprint' command instead."
     exit 2
   else
@@ -427,7 +434,10 @@ if [[ $1 != "-bash" ]]; then
     ((PROGRESS_NOW++))
 
     # Let the panel know the user has finished installation.
-    dbAdd "blueprint.setupFinished"
+    if [ ! -f "$FOLDER/.blueprint/extensions/blueprint/private/db/is_installed" ]; then
+      touch "$FOLDER/.blueprint/extensions/blueprint/private/db/is_installed"
+    fi
+
     sed -i "s~NOTINSTALLED~INSTALLED~g" "$FOLDER/app/BlueprintFramework/Services/PlaceholderService/BlueprintPlaceholderService.php"
 
     # Finish installation
@@ -461,8 +471,18 @@ case "$cmd" in
   -version|-v) source ./scripts/commands/misc/version.sh ;;
   -rerun-install) source ./scripts/commands/advanced/rerun-install.sh ;;
   -upgrade) source ./scripts/commands/advanced/upgrade.sh ;;
+  -unlock) source ./scripts/commands/advanced/unlock.sh ;;
 esac
 
 shift 2
+
+# prevent interesting freakout when passing "*" as an argument
+for arg in "$@"; do
+  if [[ "$arg" == "*" ]]; then
+    PRINT FATAL "\"*\" cannot be used as an argument."
+    exit 2
+  fi
+done
+
 Command "$@"
 exit 0

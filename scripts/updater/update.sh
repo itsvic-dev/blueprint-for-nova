@@ -8,4 +8,10 @@ UpdaterInstall() {
   cp .update/repo/.prettierignore .
   cp .update/repo/.prettierrc.json .
   cp .update/repo/.shellcheckrc .
+
+  # Check if nodejs version is sufficient
+  nodeMajor=$(node -v | awk -F. '{print $1}' | sed 's/[^0-9]*//g')
+  if [[ $nodeMajor -lt 22 ]]; then
+    PRINT FATAL "Grace period for Node.js <22 is over. Please upgrade it to a new version then rerun the upgrade command."
+  fi
 }

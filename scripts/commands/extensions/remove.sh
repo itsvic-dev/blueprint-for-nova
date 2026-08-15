@@ -6,6 +6,7 @@ RemoveExtension() {
     hide_progress
     read -r YN
     if [[ ( ( ${YN} != "y"* ) && ( ${YN} != "Y"* ) ) || ( ( ${YN} == "" ) ) ]]; then
+      lock_remove
       PRINT INFO "Extension removal cancelled."
       hide_progress
       exit 1
@@ -21,6 +22,7 @@ RemoveExtension() {
   set -- "${@:1:2}" "$EXTENSION" "${@:4}"
 
   if [[ $(cat ".blueprint/extensions/blueprint/private/db/installed_extensions") != *"|$EXTENSION,"* ]]; then
+    lock_remove
     PRINT FATAL "'$EXTENSION' is not installed or detected."
     return 2
   fi
@@ -28,7 +30,17 @@ RemoveExtension() {
   ((PROGRESS_NOW++))
 
   if [[ -f ".blueprint/extensions/$EXTENSION/private/.store/conf.yml" ]]; then
-    eval "$(parse_yaml ".blueprint/extensions/$EXTENSION/private/.store/conf.yml" conf_)"
+    while IFS= read -r assignment; do
+      if [[ -z "$assignment" ]]; then
+        continue
+      fi
+
+      if [[ $assignment =~ ^conf_[a-zA-Z0-9_]*= ]]; then
+        eval "$assignment"
+      else
+        PRINT WARNING "Ignoring malformed stored extension configuration entry while removing '$EXTENSION'."
+      fi
+    done < <(parse_yaml ".blueprint/extensions/${EXTENSION}/private/.store/conf.yml" conf_)
     # Add aliases for config values to make working with them easier.
     local name="${conf_info_name//&/\\&}"
     local identifier="${conf_info_identifier//&/\\&}"
@@ -69,6 +81,7 @@ RemoveExtension() {
       PRINT WARNING "Config value 'requests.controllers' is deprecated, use 'requests.app' instead."
     fi
   else
+    lock_remove
     PRINT FATAL "Extension configuration file not found or detected."
     return 1
   fi

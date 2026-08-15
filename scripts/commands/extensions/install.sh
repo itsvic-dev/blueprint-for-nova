@@ -1,8 +1,8 @@
 #!/bin/bash
 
 InstallExtension() {
-  clear_tmp() {
-    rm -r ".blueprint/tmp/$n"
+  postexit() {
+    rm -r ".blueprint/tmp"
   }
 
   # The following code does some magic to allow for extensions with a
@@ -10,14 +10,7 @@ InstallExtension() {
   if [[ $1 == "[developer-build]" ]]; then
     dev=true
     n="dev"
-    cp -r ".blueprint/dev" ".blueprint/tmp/dev"
-
-    clear_tmp() {
-      rm -r \
-        ".blueprint/tmp/dev" \
-        ".blueprint/tmp/$n" \
-        2> /dev/null
-    }
+    cp -r ".blueprint/dev" ".blueprint/tmp"
   else
     PRINT INFO "\x1b[34;mInstalling $1...\x1b[0m \x1b[37m($current/$total)\x1b[0m"
     dev=false
@@ -28,24 +21,7 @@ InstallExtension() {
 
     if [[ ! -f "$FILE" ]]; then PRINT FATAL "$FILE could not be found or detected.";return 2;fi
 
-    ZIP="${n}.zip"
-    cp "$FILE" ".blueprint/tmp/$ZIP"
-    cd ".blueprint/tmp" || cdhalt
-    unzip -o -qq "$ZIP"
-    rm "$ZIP"
-    if [[ ! -f "$n/*" ]]; then
-      cd ".." || cdhalt
-      rm -R "tmp"
-      mkdir -p "tmp"
-      cd "tmp" || cdhalt
-
-      mkdir -p "./$n"
-      cp "../../$FILE" "./$n/$ZIP"
-      cd "$n" || cdhalt
-      unzip -o -qq "$ZIP"
-      rm "$ZIP"
-      cd ".." || cdhalt
-    fi
+    extract_extension "$1"
   fi
 
   ((PROGRESS_NOW++))
@@ -54,14 +30,14 @@ InstallExtension() {
   cd "$FOLDER" || cdhalt
 
   # Get all strings from the conf.yml file and make them accessible as variables.
-  if [[ ! -f ".blueprint/tmp/$n/conf.yml" ]]; then
+  if [[ ! -f ".blueprint/tmp/conf.yml" ]]; then
     # Quit if the extension doesn't have a conf.yml file.
-    clear_tmp
+    postexit
     PRINT FATAL "Extension configuration file not found or detected."
     return 1
   fi
 
-  eval "$(parse_yaml .blueprint/tmp/"${n}"/conf.yml conf_)"
+  eval "$(parse_yaml .blueprint/tmp/conf.yml conf_)"
 
   # Add aliases for config values to make working with them easier.
   local name="${conf_info_name//&/\\&}"
@@ -130,7 +106,7 @@ InstallExtension() {
   || [[ ( $requests_routers_client      == "/"* ) || ( $requests_routers_client      == *"/.."* ) || ( $requests_routers_client      == *"../"* ) || ( $requests_routers_client      == *"/../"* ) || ( $requests_routers_client      == *"~"* ) || ( $requests_routers_client      == *"\\"* ) ]] \
   || [[ ( $requests_routers_web         == "/"* ) || ( $requests_routers_web         == *"/.."* ) || ( $requests_routers_web         == *"../"* ) || ( $requests_routers_web         == *"/../"* ) || ( $requests_routers_web         == *"~"* ) || ( $requests_routers_web         == *"\\"* ) ]] \
   || [[ ( $database_migrations          == "/"* ) || ( $database_migrations          == *"/.."* ) || ( $database_migrations          == *"../"* ) || ( $database_migrations          == *"/../"* ) || ( $database_migrations          == *"~"* ) || ( $database_migrations          == *"\\"* ) ]]; then
-    clear_tmp
+    postexit
     PRINT FATAL "Config file paths cannot escape the extension bundle."
     return 1
   fi
@@ -145,7 +121,7 @@ InstallExtension() {
   || [[ ( $requests_views == *"/"       ) ]] \
   || [[ ( $requests_app == *"/"         ) ]] \
   || [[ ( $database_migrations == *"/"  ) ]]; then
-    clear_tmp
+    postexit
     PRINT FATAL "Directory paths in conf.yml should not end with a slash."
     return 1
   fi
@@ -155,7 +131,7 @@ InstallExtension() {
   # check if extension still has placeholder values
   if [[ ( $name    == "[name]" ) || ( $identifier == "[identifier]" ) || ( $description == "[description]" ) ]] \
   || [[ ( $version == "[ver]"  ) || ( $target     == "[version]"    ) || ( $author      == "[author]"      ) ]]; then
-    clear_tmp
+    postexit
     PRINT FATAL "Extension contains placeholder values which need to be replaced."
     return 1
   fi
@@ -167,12 +143,22 @@ InstallExtension() {
     PRINT INFO "Switching to update process as extension has already been installed."
 
     if [[ ! -d ".blueprint/extensions/$identifier/private/.store" ]]; then
-      clear_tmp
+      postexit
       PRINT FATAL "Upgrading extension has failed due to missing essential .store files."
       return 1
     fi
 
-    eval "$(parse_yaml .blueprint/extensions/"${identifier}"/private/.store/conf.yml old_)"
+    while IFS= read -r assignment; do
+      if [[ -z "$assignment" ]]; then
+        continue
+      fi
+
+      if [[ $assignment =~ ^old_[a-zA-Z0-9_]*= ]]; then
+        eval "$assignment"
+      else
+        PRINT WARNING "Ignoring malformed stored extension configuration entry while updating '$identifier'."
+      fi
+    done < <(parse_yaml ".blueprint/extensions/${identifier}/private/.store/conf.yml" old_)
     local DUPLICATE="y"
 
     # run extension update script
@@ -191,7 +177,7 @@ InstallExtension() {
         PTERODACTYL_DIRECTORY=\"$FOLDER\"    \
         BLUEPRINT_VERSION=\"$VERSION\"       \
         BLUEPRINT_DEVELOPER=\"$dev\"         \
-        BLUEPRINT_TMP=\".blueprint/tmp/$n\"  \
+        BLUEPRINT_TMP=\".blueprint/tmp\"  \
         bash .blueprint/extensions/$identifier/private/update.sh
       "
       echo -e "\e[0m\x1b[0m\033[0m"
@@ -244,7 +230,7 @@ InstallExtension() {
   ((PROGRESS_NOW++))
 
   if [[ $dev == true ]]; then
-    mv ".blueprint/tmp/$n" ".blueprint/tmp/$identifier"
+    # why is this here
     n=$identifier
   fi
 
@@ -253,7 +239,7 @@ InstallExtension() {
   if ! $F_ignorePlaceholders; then
     # Prepare variables for placeholders
     PRINT INFO "Writing extension placeholders.."
-    DIR=".blueprint/tmp/$n"
+    DIR=".blueprint/tmp"
     INSTALL_STAMP=$(date +%s)
     local INSTALL_MODE="local"
     if $dev; then local INSTALL_MODE="develop"; fi
@@ -395,12 +381,12 @@ InstallExtension() {
 
   ((PROGRESS_NOW++))
 
-  if [[ $name == "" ]]; then clear_tmp;                PRINT FATAL "'info.name' is a required configuration option.";return 1;fi
-  if [[ $identifier == "" ]]; then clear_tmp;          PRINT FATAL "'info.identifier' is a required configuration option.";return 1;fi
-  if [[ $description == "" ]]; then clear_tmp;         PRINT FATAL "'info.description' is a required configuration option.";return 1;fi
-  if [[ $version == "" ]]; then clear_tmp;             PRINT FATAL "'info.version' is a required configuration option.";return 1;fi
-  if [[ $target == "" ]]; then clear_tmp;              PRINT FATAL "'info.target' is a required configuration option.";return 1;fi
-  if [[ $admin_view == "" ]]; then clear_tmp;          PRINT FATAL "'admin.view' is a required configuration option.";return 1;fi
+  if [[ $name == "" ]]; then postexit;        PRINT FATAL "'info.name' is a required configuration option.";return 1;fi
+  if [[ $identifier == "" ]]; then postexit;  PRINT FATAL "'info.identifier' is a required configuration option.";return 1;fi
+  if [[ $description == "" ]]; then postexit; PRINT FATAL "'info.description' is a required configuration option.";return 1;fi
+  if [[ $version == "" ]]; then postexit;     PRINT FATAL "'info.version' is a required configuration option.";return 1;fi
+  if [[ $target == "" ]]; then postexit;      PRINT FATAL "'info.target' is a required configuration option.";return 1;fi
+  if [[ $admin_view == "" ]]; then postexit;  PRINT FATAL "'admin.view' is a required configuration option.";return 1;fi
 
   if [[ $icon == "" ]]; then                           PRINT WARNING "${identifier^} does not come with an icon, consider adding one.";fi
   if [[ $target != "$VERSION" ]]; then                 PRINT WARNING "${identifier^} is built for version $target, but your version is $VERSION.";fi
@@ -419,7 +405,7 @@ InstallExtension() {
   if [[ $TEST_IDENTIFIER == *"[chars]"* ]]; then TEST_IDENTIFIER_MATCHES="true"; PRINT FATAL "Extension identifiers should be lowercase and only contain characters a-z."; fi
 
   if [[ $TEST_IDENTIFIER_MATCHES == "true" ]]; then
-    clear_tmp
+    postexit
     return 1
   fi
   unset TEST_IDENTIFIER
@@ -429,23 +415,23 @@ InstallExtension() {
 
   # Validate paths to files and directories defined in conf.yml.
   if \
-    [[ ( ! -f ".blueprint/tmp/$n/$icon"                         ) && ( ${icon} != ""                         ) ]] ||    # file:   icon                         (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$admin_view"                   )                                              ]] ||    # file:   admin_view
-    [[ ( ! -f ".blueprint/tmp/$n/$admin_controller"             ) && ( ${admin_controller} != ""             ) ]] ||    # file:   admin_controller             (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$admin_css"                    ) && ( ${admin_css} != ""                    ) ]] ||    # file:   admin_css                    (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$admin_wrapper"                ) && ( ${admin_wrapper} != ""                ) ]] ||    # file:   admin_wrapper                (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$dashboard_css"                ) && ( ${dashboard_css} != ""                ) ]] ||    # file:   dashboard_css                (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$dashboard_wrapper"            ) && ( ${dashboard_wrapper} != ""            ) ]] ||    # file:   dashboard_wrapper            (optional)
-    [[ ( ! -d ".blueprint/tmp/$n/$dashboard_components"         ) && ( ${dashboard_components} != ""         ) ]] ||    # folder: dashboard_components         (optional)
-    [[ ( ! -d ".blueprint/tmp/$n/$data_directory"               ) && ( ${data_directory} != ""               ) ]] ||    # folder: data_directory               (optional)
-    [[ ( ! -d ".blueprint/tmp/$n/$data_public"                  ) && ( ${data_public} != ""                  ) ]] ||    # folder: data_public                  (optional)
-    [[ ( ! -d ".blueprint/tmp/$n/$requests_views"               ) && ( ${requests_views} != ""               ) ]] ||    # folder: requests_views               (optional)
-    [[ ( ! -d ".blueprint/tmp/$n/$requests_app"                 ) && ( ${requests_app} != ""                 ) ]] ||    # folder: requests_app                 (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$requests_routers_application" ) && ( ${requests_routers_application} != "" ) ]] ||    # file:   requests_routers_application (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$requests_routers_client"      ) && ( ${requests_routers_client} != ""      ) ]] ||    # file:   requests_routers_client      (optional)
-    [[ ( ! -f ".blueprint/tmp/$n/$requests_routers_web"         ) && ( ${requests_routers_web} != ""         ) ]] ||    # file:   requests_routers_web         (optional)
-    [[ ( ! -d ".blueprint/tmp/$n/$database_migrations"          ) && ( ${database_migrations} != ""          ) ]];then  # folder: database_migrations          (optional)
-    clear_tmp
+    [[ ( ! -f ".blueprint/tmp/$icon"                         ) && ( ${icon} != ""                         ) ]] ||    # file:   icon                         (optional)
+    [[ ( ! -f ".blueprint/tmp/$admin_view"                   )                                              ]] ||    # file:   admin_view
+    [[ ( ! -f ".blueprint/tmp/$admin_controller"             ) && ( ${admin_controller} != ""             ) ]] ||    # file:   admin_controller             (optional)
+    [[ ( ! -f ".blueprint/tmp/$admin_css"                    ) && ( ${admin_css} != ""                    ) ]] ||    # file:   admin_css                    (optional)
+    [[ ( ! -f ".blueprint/tmp/$admin_wrapper"                ) && ( ${admin_wrapper} != ""                ) ]] ||    # file:   admin_wrapper                (optional)
+    [[ ( ! -f ".blueprint/tmp/$dashboard_css"                ) && ( ${dashboard_css} != ""                ) ]] ||    # file:   dashboard_css                (optional)
+    [[ ( ! -f ".blueprint/tmp/$dashboard_wrapper"            ) && ( ${dashboard_wrapper} != ""            ) ]] ||    # file:   dashboard_wrapper            (optional)
+    [[ ( ! -d ".blueprint/tmp/$dashboard_components"         ) && ( ${dashboard_components} != ""         ) ]] ||    # folder: dashboard_components         (optional)
+    [[ ( ! -d ".blueprint/tmp/$data_directory"               ) && ( ${data_directory} != ""               ) ]] ||    # folder: data_directory               (optional)
+    [[ ( ! -d ".blueprint/tmp/$data_public"                  ) && ( ${data_public} != ""                  ) ]] ||    # folder: data_public                  (optional)
+    [[ ( ! -d ".blueprint/tmp/$requests_views"               ) && ( ${requests_views} != ""               ) ]] ||    # folder: requests_views               (optional)
+    [[ ( ! -d ".blueprint/tmp/$requests_app"                 ) && ( ${requests_app} != ""                 ) ]] ||    # folder: requests_app                 (optional)
+    [[ ( ! -f ".blueprint/tmp/$requests_routers_application" ) && ( ${requests_routers_application} != "" ) ]] ||    # file:   requests_routers_application (optional)
+    [[ ( ! -f ".blueprint/tmp/$requests_routers_client"      ) && ( ${requests_routers_client} != ""      ) ]] ||    # file:   requests_routers_client      (optional)
+    [[ ( ! -f ".blueprint/tmp/$requests_routers_web"         ) && ( ${requests_routers_web} != ""         ) ]] ||    # file:   requests_routers_web         (optional)
+    [[ ( ! -d ".blueprint/tmp/$database_migrations"          ) && ( ${database_migrations} != ""          ) ]];then  # folder: database_migrations          (optional)
+    postexit
     PRINT FATAL "Extension configuration points towards one or more files that do not exist."
     return 1
   fi
@@ -455,7 +441,7 @@ InstallExtension() {
   # Place database migrations.
   if [[ $database_migrations != "" ]]; then
     PRINT INFO "Cloning database migration files.."
-    cp -R ".blueprint/tmp/$n/$database_migrations/"* "database/migrations/" 2>> "$BLUEPRINT__DEBUG"
+    cp -R ".blueprint/tmp/$database_migrations/"* "database/migrations/" 2>> "$BLUEPRINT__DEBUG"
     dbmigrations="true"
   fi
 
@@ -465,7 +451,7 @@ InstallExtension() {
   if [[ $requests_views != "" ]]; then
     PRINT INFO "Cloning and linking views directory.."
     mkdir -p ".blueprint/extensions/$identifier/views"
-    cp -R ".blueprint/tmp/$n/$requests_views/"* ".blueprint/extensions/$identifier/views/" 2>> "$BLUEPRINT__DEBUG"
+    cp -R ".blueprint/tmp/$requests_views/"* ".blueprint/extensions/$identifier/views/" 2>> "$BLUEPRINT__DEBUG"
     ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/views" "$FOLDER/resources/views/blueprint/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
   fi
 
@@ -475,7 +461,7 @@ InstallExtension() {
   if [[ $requests_app != "" ]]; then
     PRINT INFO "Cloning and linking app directory.."
     mkdir -p ".blueprint/extensions/$identifier/app"
-    cp -R ".blueprint/tmp/$n/$requests_app/"* ".blueprint/extensions/$identifier/app/" 2>> "$BLUEPRINT__DEBUG"
+    cp -R ".blueprint/tmp/$requests_app/"* ".blueprint/extensions/$identifier/app/" 2>> "$BLUEPRINT__DEBUG"
     ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/app" "$FOLDER/app/BlueprintFramework/Extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
   fi
 
@@ -491,7 +477,7 @@ InstallExtension() {
     if [[ $requests_routers_application != "" ]]; then
       {
         rm "$FOLDER/routes/blueprint/application/$identifier.php"
-        cp -R ".blueprint/tmp/$n/$requests_routers_application" ".blueprint/extensions/$identifier/routers/application.php"
+        cp -R ".blueprint/tmp/$requests_routers_application" ".blueprint/extensions/$identifier/routers/application.php"
         ln -s -r -T ".blueprint/extensions/$identifier/routers/application.php" "$FOLDER/routes/blueprint/application/$identifier.php"
       } 2>> "$BLUEPRINT__DEBUG"
     fi
@@ -499,7 +485,7 @@ InstallExtension() {
     if [[ $requests_routers_client != "" ]]; then
       {
         rm "$FOLDER/routes/blueprint/client/$identifier.php"
-        cp -R ".blueprint/tmp/$n/$requests_routers_client" ".blueprint/extensions/$identifier/routers/client.php"
+        cp -R ".blueprint/tmp/$requests_routers_client" ".blueprint/extensions/$identifier/routers/client.php"
         ln -s -r -T ".blueprint/extensions/$identifier/routers/client.php" "$FOLDER/routes/blueprint/client/$identifier.php"
       } 2>> "$BLUEPRINT__DEBUG"
     fi
@@ -507,7 +493,7 @@ InstallExtension() {
     if [[ $requests_routers_web != "" ]]; then
       {
         rm "$FOLDER/routes/blueprint/web/$identifier.php"
-        cp -R ".blueprint/tmp/$n/$requests_routers_web" ".blueprint/extensions/$identifier/routers/web.php"
+        cp -R ".blueprint/tmp/$requests_routers_web" ".blueprint/extensions/$identifier/routers/web.php"
         ln -s -r -T ".blueprint/extensions/$identifier/routers/web.php" "$FOLDER/routes/blueprint/web/$identifier.php"
       } 2>> "$BLUEPRINT__DEBUG"
     fi
@@ -526,13 +512,13 @@ InstallExtension() {
     mkdir -p \
       ".blueprint/extensions/$identifier/console/functions" \
       "app/Console/Commands/BlueprintFramework/Extensions/${identifier^}"
-    cp -R ".blueprint/tmp/$n/$data_console/"* ".blueprint/extensions/$identifier/console/functions/" 2>> "$BLUEPRINT__DEBUG"
+    cp -R ".blueprint/tmp/$data_console/"* ".blueprint/extensions/$identifier/console/functions/" 2>> "$BLUEPRINT__DEBUG"
 
     # Now we check if Console.yml exists, and if it does, create Artisan commands from options defined in Console.yml.
-    if [[ -f ".blueprint/tmp/$n/$data_console/Console.yml" ]]; then
+    if [[ -f ".blueprint/tmp/$data_console/Console.yml" ]]; then
 
       # Read the Console.yml file with the "parse_yaml" library.
-      eval "$(parse_yaml .blueprint/tmp/"$n"/"$data_console"/Console.yml Console_)"
+      eval "$(parse_yaml .blueprint/tmp/"$data_console"/Console.yml Console_)"
       if [[ $DUPLICATE == "y" ]]; then eval "$(parse_yaml .blueprint/extensions/"${identifier}"/private/.store/Console.yml OldConsole_)"; fi
 
       # Print warning if console configuration is empty - otherwise go through all options.
@@ -542,7 +528,7 @@ InstallExtension() {
         PRINT INFO "Creating and linking console commands and schedules.."
 
         if [[ "$SYS_ENCODING" != "UTF-8" ]]; then
-          clear_tmp
+          postexit
           PRINT FATAL "System locale encoding is not UTF-8, artisan commands cannot be generated."
           return 1
         fi
@@ -596,28 +582,28 @@ InstallExtension() {
             ( ${CONSOLE_ENTRY_PATH} == *"@"* ) ||
             ( ${CONSOLE_ENTRY_PATH} == *"\\"* )
           ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Console entry paths may not escape the console directory."
             return 1
           fi
 
           # Validate file names for console entries.
           if [[ ${CONSOLE_ENTRY_PATH} != *".php" ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Console entry paths may not end with a file extension other than '.php'."
             return 1
           fi
 
           # Validate file path.
-          if [[ ! -f ".blueprint/tmp/$n/$data_console/${CONSOLE_ENTRY_PATH}" ]]; then
-            clear_tmp
+          if [[ ! -f ".blueprint/tmp/$data_console/${CONSOLE_ENTRY_PATH}" ]]; then
+            postexit
             PRINT FATAL "Console configuration points towards one or more files that do not exist."
             return 1
           fi
 
           # Return error if identifier is generated incorrectly.
           if [[ $CONSOLE_ENTRY_IDEN == "" ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Failed to generate extension console entry identifier, halting process."
             return 1
           fi
@@ -625,7 +611,7 @@ InstallExtension() {
           # Return error if console entries are defined incorrectly.
           if [[ $CONSOLE_ENTRY_SIGN == "" ]] \
           || [[ $CONSOLE_ENTRY_DESC == "" ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "One or more extension console entries appear to have undefined fields."
             return 1
           fi
@@ -734,11 +720,11 @@ InstallExtension() {
         "resources/scripts/blueprint/extends/routers/routes.ts"
     fi
 
-    cp -R ".blueprint/tmp/$n/$dashboard_components/"* ".blueprint/extensions/$identifier/components/" 2>> "$BLUEPRINT__DEBUG"
-    if [[ -f ".blueprint/tmp/$n/$dashboard_components/Components.yml" ]]; then
+    cp -R ".blueprint/tmp/$dashboard_components/"* ".blueprint/extensions/$identifier/components/" 2>> "$BLUEPRINT__DEBUG"
+    if [[ -f ".blueprint/tmp/$dashboard_components/Components.yml" ]]; then
 
       # fetch component config
-      eval "$(parse_yaml .blueprint/tmp/"$n"/"$dashboard_components"/Components.yml Components_)"
+      eval "$(parse_yaml .blueprint/tmp/"$dashboard_components"/Components.yml Components_)"
       if [[ $DUPLICATE == "y" ]]; then eval "$(parse_yaml .blueprint/extensions/"${identifier}"/private/.store/Components.yml OldComponents_)"; fi
 
       PLACE_REACT() {
@@ -751,7 +737,7 @@ InstallExtension() {
           ( $1 == *"@"* ) ||
           ( $1 == *"\\"* )
         ]]; then
-          clear_tmp
+          postexit
           PRINT FATAL "Component file paths cannot escape the components folder."
           return 1
         fi
@@ -764,21 +750,21 @@ InstallExtension() {
         if [[ ! $1 == "" ]]; then
 
           # validate file name
-          if [[ ${1} == *".tsx" ]] ||
-            [[ ${1} == *".ts"   ]] ||
-            [[ ${1} == *".jsx"  ]] ||
-            [[ ${1} == *".js"   ]]; then
-            clear_tmp
+          if [[ ${1} == *".tsx" ]] \
+          || [[ ${1} == *".ts"  ]] \
+          || [[ ${1} == *".jsx" ]] \
+          || [[ ${1} == *".js"  ]]; then
+            postexit
             PRINT FATAL "Component paths may not end with a file extension."
             return 1
           fi
 
           # validate path
-          if [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.tsx" ]] &&
-            [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.ts"   ]] &&
-            [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.jsx"  ]] &&
-            [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${1}.js"   ]]; then
-            clear_tmp
+          if [[ ! -f ".blueprint/tmp/$dashboard_components/${1}.tsx" ]] \
+          && [[ ! -f ".blueprint/tmp/$dashboard_components/${1}.ts"  ]] \
+          && [[ ! -f ".blueprint/tmp/$dashboard_components/${1}.jsx" ]] \
+          && [[ ! -f ".blueprint/tmp/$dashboard_components/${1}.js"  ]]; then
+            postexit
             PRINT FATAL "Components configuration points towards one or more files that do not exist."
             return 1
           fi
@@ -891,7 +877,7 @@ InstallExtension() {
         PRINT INFO "Linking navigation routes.."
 
         if [[ "$SYS_ENCODING" != "UTF-8" ]]; then
-          clear_tmp
+          postexit
           PRINT FATAL "System locale encoding is not UTF-8, navigation routes cannot be generated at this time."
           return 1
         fi
@@ -936,7 +922,7 @@ InstallExtension() {
 
           # Return error if type is not defined correctly.
           if [[ ( $COMPONENTS_ROUTE_TYPE != "server" ) && ( $COMPONENTS_ROUTE_TYPE != "account" ) ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Navigation route types can only be either 'server' or 'account'."
             return 1
           fi
@@ -951,7 +937,7 @@ InstallExtension() {
             ( ${COMPONENTS_ROUTE_COMP} == *"@"* ) ||
             ( ${COMPONENTS_ROUTE_COMP} == *"\\"* )
           ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Navigation route component paths may not escape the components directory."
             return 1
           fi
@@ -961,24 +947,24 @@ InstallExtension() {
           || [[ ${COMPONENTS_ROUTE_COMP} == *".ts"  ]] \
           || [[ ${COMPONENTS_ROUTE_COMP} == *".jsx" ]] \
           || [[ ${COMPONENTS_ROUTE_COMP} == *".js"  ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Navigation route component paths may not end with a file extension."
             return 1
           fi
 
           # Validate file path.
-          if [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.tsx" ]] \
-          && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.ts"  ]] \
-          && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.jsx" ]] \
-          && [[ ! -f ".blueprint/tmp/$n/$dashboard_components/${COMPONENTS_ROUTE_COMP}.js"  ]]; then
-            clear_tmp
+          if [[ ! -f ".blueprint/tmp/$dashboard_components/${COMPONENTS_ROUTE_COMP}.tsx" ]] \
+          && [[ ! -f ".blueprint/tmp/$dashboard_components/${COMPONENTS_ROUTE_COMP}.ts"  ]] \
+          && [[ ! -f ".blueprint/tmp/$dashboard_components/${COMPONENTS_ROUTE_COMP}.jsx" ]] \
+          && [[ ! -f ".blueprint/tmp/$dashboard_components/${COMPONENTS_ROUTE_COMP}.js"  ]]; then
+            postexit
             PRINT FATAL "Navigation route configuration points towards one or more components that do not exist."
             return 1
           fi
 
           # Return error if identifier is generated incorrectly.
           if [[ $COMPONENTS_ROUTE_IDEN == "" ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "Failed to generate extension navigation route identifier, halting process."
             return 1
           fi
@@ -987,7 +973,7 @@ InstallExtension() {
           if [[ $COMPONENTS_ROUTE_PATH == "" ]] \
           || [[ $COMPONENTS_ROUTE_TYPE == "" ]] \
           || [[ $COMPONENTS_ROUTE_COMP == "" ]]; then
-            clear_tmp
+            postexit
             PRINT FATAL "One or more extension navigation routes appear to have undefined fields."
             return 1
           fi
@@ -1061,7 +1047,7 @@ InstallExtension() {
     mkdir -p ".blueprint/extensions/$identifier/public"
     ln -s -r -T "$FOLDER/.blueprint/extensions/$identifier/public" "$FOLDER/public/extensions/$identifier" 2>> "$BLUEPRINT__DEBUG"
 
-    cp -R ".blueprint/tmp/$n/$data_public/"* ".blueprint/extensions/$identifier/public/" 2>> "$BLUEPRINT__DEBUG"
+    cp -R ".blueprint/tmp/$data_public/"* ".blueprint/extensions/$identifier/public/" 2>> "$BLUEPRINT__DEBUG"
   fi
 
   if [[ $admin_controller == "" ]]; then
@@ -1090,19 +1076,19 @@ InstallExtension() {
     ".blueprint/extensions/$identifier/private" \
     ".blueprint/extensions/$identifier/private/.store"
 
-  if [[ $data_directory != "" ]]; then cp -R ".blueprint/tmp/$n/$data_directory/"* ".blueprint/extensions/$identifier/private/"; fi
+  if [[ $data_directory != "" ]]; then cp -R ".blueprint/tmp/$data_directory/"* ".blueprint/extensions/$identifier/private/"; fi
 
   #backup conf.yml
-  cp ".blueprint/tmp/$n/conf.yml" ".blueprint/extensions/$identifier/private/.store/conf.yml"
+  cp ".blueprint/tmp/conf.yml" ".blueprint/extensions/$identifier/private/.store/conf.yml"
   #backup Components.yml
-  if [[ -f ".blueprint/tmp/$n/$dashboard_components/Components.yml" ]] \
+  if [[ -f ".blueprint/tmp/$dashboard_components/Components.yml" ]] \
   && [[ $dashboard_components != "" ]]; then
-    cp ".blueprint/tmp/$n/$dashboard_components/Components.yml" ".blueprint/extensions/$identifier/private/.store/Components.yml"
+    cp ".blueprint/tmp/$dashboard_components/Components.yml" ".blueprint/extensions/$identifier/private/.store/Components.yml"
   fi
   #backup Console.yml
-  if [[ -f ".blueprint/tmp/$n/$data_console/Console.yml" ]] \
+  if [[ -f ".blueprint/tmp/$data_console/Console.yml" ]] \
   && [[ $data_console != "" ]]; then
-    cp ".blueprint/tmp/$n/$data_console/Console.yml" ".blueprint/extensions/$identifier/private/.store/Console.yml"
+    cp ".blueprint/tmp/$data_console/Console.yml" ".blueprint/extensions/$identifier/private/.store/Console.yml"
   fi
 
   # End creating data directory.
@@ -1134,7 +1120,7 @@ InstallExtension() {
       *.webp) local ICON_EXT="webp" ;;
       *) local ICON_EXT="jpg" ;;
     esac
-    cp ".blueprint/tmp/$n/$icon" ".blueprint/extensions/$identifier/assets/icon.$ICON_EXT"
+    cp ".blueprint/tmp/$icon" ".blueprint/extensions/$identifier/assets/icon.$ICON_EXT"
   fi;
   ICON="/assets/extensions/$identifier/icon.$ICON_EXT"
 
@@ -1145,7 +1131,7 @@ InstallExtension() {
     sed -i "s~@import url(/assets/extensions/$identifier/admin.style.css);~~g" ".blueprint/extensions/blueprint/assets/admin.extensions.css"
     echo -e "@import url(/assets/extensions/$identifier/admin.style.css);" >> ".blueprint/extensions/blueprint/assets/admin.extensions.css"
 
-    cp ".blueprint/tmp/$n/$admin_css" ".blueprint/extensions/$identifier/assets/admin.style.css"
+    cp ".blueprint/tmp/$admin_css" ".blueprint/extensions/$identifier/assets/admin.style.css"
   fi
 
   if [[ $dashboard_css != "" ]]; then
@@ -1155,7 +1141,7 @@ InstallExtension() {
     sed -i "s~@import url(./imported/$identifier.css);~~g" "resources/scripts/blueprint/css/extensions.css"
     echo -e -n "@import url(./imported/$identifier.css);" >> "resources/scripts/blueprint/css/extensions.css"
 
-    cp ".blueprint/tmp/$n/$dashboard_css" ".blueprint/extensions/$identifier/dashboard.css"
+    cp ".blueprint/tmp/$dashboard_css" ".blueprint/extensions/$identifier/dashboard.css"
     if [[ $DUPLICATE != "y" ]]; then
       ln -s -r -T ".blueprint/extensions/$identifier/dashboard.css" "$FOLDER/resources/scripts/blueprint/css/imported/$identifier.css"
     fi
@@ -1189,7 +1175,8 @@ InstallExtension() {
       -e "s~\[webicon\]~$websiteiconclass~g" \
       "$AdminBladeConstructor"
   fi
-  echo -e "$(<".blueprint/tmp/$n/$admin_view")\n@endsection" >> "$AdminBladeConstructor"
+  cat ".blueprint/tmp/$admin_view" >> "$AdminBladeConstructor"
+  printf '\n@endsection\n' >> "$AdminBladeConstructor"
 
   # Construct admin controller
   if [[ $controller_type == "default" ]]; then sed -i "s~\[id\]~$identifier~g" "$AdminControllerConstructor"; fi
@@ -1224,7 +1211,7 @@ InstallExtension() {
     echo "$ADMINCONTROLLER_RESULT" > "app/Http/Controllers/Admin/Extensions/$identifier/$ADMINCONTROLLER_NAME"
   else
     # Use default extension controller.
-    cp ".blueprint/tmp/$n/$admin_controller" "app/Http/Controllers/Admin/Extensions/$identifier/$ADMINCONTROLLER_NAME"
+    cp ".blueprint/tmp/$admin_controller" "app/Http/Controllers/Admin/Extensions/$identifier/$ADMINCONTROLLER_NAME"
   fi
 
   ((PROGRESS_NOW++))
@@ -1234,7 +1221,7 @@ InstallExtension() {
     PRINT INFO "Cloning and linking dashboard wrapper.."
     if [[ -f "resources/views/blueprint/dashboard/wrappers/$identifier.blade.php" ]]; then rm "resources/views/blueprint/dashboard/wrappers/$identifier.blade.php"; fi
     if [[ ! -d ".blueprint/extensions/$identifier/wrappers" ]]; then mkdir ".blueprint/extensions/$identifier/wrappers"; fi
-    cp ".blueprint/tmp/$n/$dashboard_wrapper" ".blueprint/extensions/$identifier/wrappers/dashboard.blade.php"
+    cp ".blueprint/tmp/$dashboard_wrapper" ".blueprint/extensions/$identifier/wrappers/dashboard.blade.php"
     ln -s -r -T ".blueprint/extensions/$identifier/wrappers/dashboard.blade.php" "$FOLDER/resources/views/blueprint/dashboard/wrappers/$identifier.blade.php"
   fi
 
@@ -1245,7 +1232,7 @@ InstallExtension() {
     PRINT INFO "Cloning and linking admin wrapper.."
     if [[ -f "resources/views/blueprint/admin/wrappers/$identifier.blade.php" ]]; then rm "resources/views/blueprint/admin/wrappers/$identifier.blade.php"; fi
     if [[ ! -d ".blueprint/extensions/$identifier/wrappers" ]]; then mkdir ".blueprint/extensions/$identifier/wrappers"; fi
-    cp ".blueprint/tmp/$n/$admin_wrapper" ".blueprint/extensions/$identifier/wrappers/admin.blade.php"
+    cp ".blueprint/tmp/$admin_wrapper" ".blueprint/extensions/$identifier/wrappers/admin.blade.php"
     ln -s -r -T ".blueprint/extensions/$identifier/wrappers/admin.blade.php" "$FOLDER/resources/views/blueprint/admin/wrappers/$identifier.blade.php"
   fi
 
@@ -1284,7 +1271,7 @@ InstallExtension() {
   rm \
     "$AdminBladeConstructor" \
     "$ConfigExtensionFS"
-  clear_tmp
+  postexit
 
   ((PROGRESS_NOW++))
 
@@ -1400,76 +1387,81 @@ Command() {
   for extension in $extensions; do
     (( current++ ))
     InstallExtension "$extension" "$current" "$total"
+    LAST_EXIT_CODE="$?"
     export PROGRESS_NOW="$(("$EXTENSIONS_STEPS" * "$current"))"
   done
 
-  if [[ ( $InstalledExtensions != "" ) || ( $BuiltExtensions != "" ) ]]; then
-    ((PROGRESS_NOW++))
-
-    # Finalize transaction
-    PRINT INFO "Finalizing transaction.."
-
-    if [[ ( $YARN == "y" ) && ( $IgnoreRebuild != "true" ) ]]; then
-      PRINT INFO "Rebuilding panel assets.."
-      hide_progress
-      cd "$FOLDER" || cdhalt
-      yarn build
-    fi
-
-    ((PROGRESS_NOW++))
-
-    # Link filesystems
-    PRINT INFO "Linking filesystems.."
-    php artisan storage:link &>> "$BLUEPRINT__DEBUG"
-
-    ((PROGRESS_NOW++))
-
-    if [[ $DeveloperWatch == "false" ]]; then
-      # Flush cache.
-      PRINT INFO "Flushing view, config and route cache.."
-      {
-        php artisan view:cache
-        php artisan config:cache
-        php artisan route:clear
-        if [[ $KeepApplicationCache != "true" ]]; then php artisan cache:clear; fi
-        php artisan bp:cache
-        php artisan queue:restart
-      } &>> "$BLUEPRINT__DEBUG"
-
-      ((PROGRESS_NOW++))
-
-      # Make sure all files have correct permissions.
-      PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
-      find "$FOLDER/" \
-      -path "$FOLDER/node_modules" -prune \
-      -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
-    fi
-
-    ((PROGRESS_NOW++))
-
-    # Database migrations
-    if [[ ( $dbmigrations == "true" ) && ( $DOCKER != "y" ) ]]; then
-      PRINT INFO "Running database migrations.."
-      hide_progress
-      php artisan migrate --force
-    fi
-
-    ((PROGRESS_NOW++))
-
-    lock_remove
-
-    if [[ $BuiltExtensions == "" ]]; then
-      CorrectPhrasing="have"
-      if [[ $total = 1 ]]; then CorrectPhrasing="has"; fi
-      PRINT SUCCESS "$InstalledExtensions $CorrectPhrasing been installed."
-    else
-      PRINT SUCCESS "$BuiltExtensions has been built."
-    fi
-
+  # If no extensions succeed installation, exit with the most recent exit code
+  if [[ ( $InstalledExtensions == "" ) && ( $BuiltExtensions == "" ) ]]; then
     hide_progress
-    exit 0
+    lock_remove
+    exit "$LAST_EXIT_CODE"
+  fi
+  # otherwise, if any extensions complete installation, finalize transaction and ignore failed installations
+
+  ((PROGRESS_NOW++))
+
+  # Finalize transaction
+  PRINT INFO "Finalizing transaction.."
+
+  if [[ ( $YARN == "y" ) && ( $IgnoreRebuild != "true" ) ]]; then
+    PRINT INFO "Rebuilding panel assets.."
+    hide_progress
+    cd "$FOLDER" || cdhalt
+    rm -rf "$FOLDER/node_modules/.cache"
+    yarn run build:production --progress
+  fi
+
+  ((PROGRESS_NOW++))
+
+  # Link filesystems
+  PRINT INFO "Linking filesystems.."
+  php artisan storage:link &>> "$BLUEPRINT__DEBUG"
+
+  ((PROGRESS_NOW++))
+
+  if [[ $DeveloperWatch == "false" ]]; then
+    # Flush cache.
+    PRINT INFO "Flushing view, config and route cache.."
+    {
+      php artisan view:cache
+      php artisan config:cache
+      php artisan route:clear
+      if [[ $KeepApplicationCache != "true" ]]; then php artisan cache:clear; fi
+      php artisan bp:cache
+      php artisan queue:restart
+    } &>> "$BLUEPRINT__DEBUG"
+
+    ((PROGRESS_NOW++))
+
+    # Make sure all files have correct permissions.
+    PRINT INFO "Changing Pterodactyl file ownership to '$OWNERSHIP'.."
+    find "$FOLDER/" \
+    -path "$FOLDER/node_modules" -prune \
+    -o -exec chown "$OWNERSHIP" {} + &>> "$BLUEPRINT__DEBUG"
+  fi
+
+  ((PROGRESS_NOW++))
+
+  # Database migrations
+  if [[ ( $dbmigrations == "true" ) && ( $DOCKER != "y" ) ]]; then
+    PRINT INFO "Running database migrations.."
+    hide_progress
+    php artisan migrate --force
+  fi
+
+  ((PROGRESS_NOW++))
+
+  lock_remove
+
+  if [[ $BuiltExtensions == "" ]]; then
+    CorrectPhrasing="have"
+    if [[ $total = 1 ]]; then CorrectPhrasing="has"; fi
+    PRINT SUCCESS "$InstalledExtensions $CorrectPhrasing been installed."
+  else
+    PRINT SUCCESS "$BuiltExtensions has been built."
   fi
 
   hide_progress
-  exit 1
+  exit 0
 }

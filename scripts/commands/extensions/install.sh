@@ -1409,7 +1409,7 @@ Command() {
     hide_progress
     cd "$FOLDER" || cdhalt
     rm -rf "$FOLDER/node_modules/.cache"
-    yarn run build:production --progress
+    yarn run build
   fi
 
   ((PROGRESS_NOW++))
